@@ -32,6 +32,9 @@
   var locationSnapshot = null;
   var widgetReady = false;
   var currentIndex = 0;
+  var params = new URLSearchParams(window.location.search);
+  var formId = params.get("formId") || "";
+  var formFolder = params.get("folder") || "";
   var captureToken = "jf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   var isUploading = false;
   var photos = tasks.map(function (task) {
@@ -338,6 +341,8 @@
       },
       body: JSON.stringify({
         captureToken: captureToken,
+        formId: formId,
+        folder: formFolder,
         index: metadata.index,
         photoKey: metadata.key,
         imageDataUrl: imageDataUrl,
@@ -457,8 +462,10 @@
   setInterval(refreshClock, 1000);
 
   if (window.JFCustomWidget) {
-    window.JFCustomWidget.subscribe("ready", function () {
+    window.JFCustomWidget.subscribe("ready", function (data) {
       widgetReady = true;
+      formId = formId || (data && (data.formID || data.formId || data.form_id)) || "";
+      formFolder = formFolder || (formId ? "form-" + formId : "default");
       sendCurrentValue();
       resizeWidget();
     });

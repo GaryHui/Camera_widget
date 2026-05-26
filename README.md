@@ -61,6 +61,8 @@ Jotform receives a JSON string like this. It does not contain base64 image data.
 
 ## Dropbox setup
 
+This setup is for the form owner. Customers who fill out the Jotform form do not need Dropbox accounts and do not sign in to Dropbox.
+
 Set these in Vercel Project Settings -> Environment Variables to upload photos to Dropbox:
 
 ```text
@@ -82,8 +84,8 @@ DROPBOX_BASE_FOLDER=/JotformProof
 The widget uploads each JPEG and a matching metadata JSON file. Example Dropbox paths:
 
 ```text
-/JotformProof/jotform-proof/jf-example/01-front_left_45.jpg
-/JotformProof/jotform-proof/jf-example/01-front_left_45.json
+/JotformProof/jotform-proof/form-123456789/jf-example/01-front_left_45.jpg
+/JotformProof/jotform-proof/form-123456789/jf-example/01-front_left_45.json
 ```
 
 The API also creates a Dropbox shared link for each photo and returns that link to Jotform.
@@ -112,6 +114,12 @@ Use this URL as the Custom Widget URL:
 
 ```text
 https://jotform-proof-camera-standalone.vercel.app/index.html
+```
+
+You can optionally add a folder name per form or workflow:
+
+```text
+https://jotform-proof-camera-standalone.vercel.app/index.html?folder=vehicle-inspection
 ```
 
 In Jotform:
