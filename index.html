@@ -1,36 +1,36 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
-    <title>九宫格现场拍照证明</title>
+    <title>9-photo proof camera widget</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="proof-widget" data-state="idle">
-      <section class="stepbar" aria-label="拍摄进度">
+      <section class="stepbar" aria-label="Capture progress">
         <span id="stepProgress">1/9</span>
-        <strong id="stepTitle">准备拍摄</strong>
+        <strong id="stepTitle">Ready to capture</strong>
       </section>
 
-      <section class="camera-stage" aria-label="现场拍照">
+      <section class="camera-stage" aria-label="Proof camera">
         <video id="cameraVideo" autoplay muted playsinline></video>
         <canvas id="photoCanvas" hidden></canvas>
-        <img id="photoPreview" alt="已拍摄的现场证明照片" hidden />
-        <div id="emptyState" class="empty-state">请开启摄像头现场拍照</div>
-        <div id="taskHint" class="task-hint">准备拍摄</div>
+        <img id="photoPreview" alt="Captured proof photo" hidden />
+        <div id="emptyState" class="empty-state">Start the camera to capture proof photos</div>
+        <div id="taskHint" class="task-hint">Ready to capture</div>
       </section>
 
-      <section id="thumbs" class="thumbs" aria-label="已拍摄照片"></section>
+      <section id="thumbs" class="thumbs" aria-label="Captured photos"></section>
 
-      <section class="proof-meta" aria-label="证明信息">
-        <div class="meta-pill" id="gpsText">定位：等待授权</div>
-        <div class="meta-pill" id="timeText">时间：准备中</div>
+      <section class="proof-meta" aria-label="Proof metadata">
+        <div class="meta-pill" id="gpsText">Location: waiting</div>
+        <div class="meta-pill" id="timeText">Time: ready</div>
       </section>
 
-      <section class="actions" aria-label="拍照操作">
-        <button id="startCameraButton" type="button">开启摄像头</button>
+      <section class="actions" aria-label="Photo actions">
+        <button id="startCameraButton" type="button">Start camera</button>
         <button id="captureButton" type="button" disabled>Capture</button>
         <button id="retakeButton" type="button" disabled>Retake</button>
       </section>
