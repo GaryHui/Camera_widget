@@ -31,6 +31,15 @@ Each photo is watermarked with:
 - GPS latitude and longitude
 - GPS accuracy
 
+## User flow
+
+1. The customer taps `Start camera`.
+2. The customer captures each required angle in order.
+3. `Retake` only clears and retakes the currently selected angle.
+4. After all 9 photos are captured, the main button changes to `Upload all photos`.
+5. The customer taps `Upload all photos`; the widget uploads the photos to Dropbox and sends only links, metadata, and hashes to Jotform.
+6. The Jotform form can be submitted after upload is complete.
+
 ## Jotform value
 
 Jotform receives a JSON string like this. It does not contain base64 image data.

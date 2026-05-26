@@ -92,6 +92,16 @@
     }).length;
   }
 
+  function capturedCount() {
+    return photos.filter(function (item) {
+      return Boolean(item.imageDataUrl);
+    }).length;
+  }
+
+  function allCaptured() {
+    return capturedCount() === photos.length;
+  }
+
   function isComplete() {
     return uploadedCount() === photos.length;
   }
@@ -174,7 +184,8 @@
 
   function render() {
     var currentTask = tasks[currentIndex] || tasks[0];
-    var count = uploadedCount();
+    var captured = capturedCount();
+    var uploaded = uploadedCount();
 
     stepProgress.textContent = Math.min(currentIndex + 1, tasks.length) + "/" + tasks.length;
     stepTitle.textContent = currentTask.label;
@@ -189,12 +200,17 @@
       captureButton.disabled = true;
       retakeButton.disabled = false;
       setMessage("All 9 photos are uploaded. You can submit the Jotform form.");
+    } else if (allCaptured()) {
+      captureButton.textContent = "Upload all photos";
+      captureButton.disabled = false;
+      retakeButton.disabled = !photos[currentIndex].imageDataUrl;
+      setMessage("All 9 photos are captured. Tap Upload all photos to send them to Dropbox.");
     } else {
       captureButton.textContent =
-        currentIndex < tasks.length - 1 ? "Capture and upload next" : "Capture final photo";
+        currentIndex < tasks.length - 1 ? "Capture and next" : "Capture final photo";
       captureButton.disabled = !stream;
       retakeButton.disabled = !photos[currentIndex].imageDataUrl;
-      if (count > 0) setMessage("Uploaded " + count + "/" + tasks.length + " photos.");
+      if (captured > 0) setMessage("Captured " + captured + "/" + tasks.length + " photos. Uploaded " + uploaded + "/" + tasks.length + ".");
     }
 
     renderThumbs();
@@ -361,7 +377,7 @@
     return payload;
   }
 
-  async function capturePhoto() {
+  function capturePhoto() {
     if (!stream || !video.videoWidth || !video.videoHeight) {
       setMessage("Camera is not ready yet.");
       return;
@@ -398,26 +414,43 @@
     preview.hidden = false;
     video.hidden = true;
 
+    if (!allCaptured()) {
+      var nextMissing = photos.findIndex(function (item) {
+        return !item.imageDataUrl;
+      });
+      currentIndex = nextMissing >= 0 ? nextMissing : currentIndex;
+      showCurrentLiveCamera();
+    }
+
+    render();
+  }
+
+  async function uploadAllPhotos() {
+    if (!allCaptured()) {
+      setMessage("Please capture all 9 photos before uploading.");
+      return;
+    }
+
     isUploading = true;
-    setMessage("Uploading " + meta.index + "/9: " + meta.label + "...");
     render();
 
     try {
-      photos[currentIndex].upload = await uploadPhoto(imageDataUrl, meta);
-      photos[currentIndex].error = "";
+      for (var i = 0; i < photos.length; i++) {
+        if (photos[i].upload) continue;
 
-      if (!isComplete()) {
-        var nextMissing = photos.findIndex(function (item) {
-          return !item.upload;
-        });
-        currentIndex = nextMissing >= 0 ? nextMissing : currentIndex;
-        showCurrentLiveCamera();
-      } else {
-        sendCurrentValue();
+        currentIndex = i;
+        setMessage("Uploading " + (i + 1) + "/9: " + photos[i].label + "...");
+        renderThumbs();
+        photos[i].upload = await uploadPhoto(photos[i].imageDataUrl, photos[i].metadata);
+        photos[i].error = "";
       }
+
+      sendCurrentValue();
+      setMessage("All 9 photos are uploaded. You can submit the Jotform form.");
     } catch (error) {
+      photos[currentIndex].upload = null;
       photos[currentIndex].error = error.message || "Upload failed";
-      setMessage("Upload failed for " + meta.label + ". Please retake this photo.");
+      setMessage("Upload failed for " + photos[currentIndex].label + ". Tap Upload all photos to retry, or Retake this item.");
     } finally {
       isUploading = false;
       render();
@@ -453,7 +486,13 @@
   }
 
   startCameraButton.addEventListener("click", startCamera);
-  captureButton.addEventListener("click", capturePhoto);
+  captureButton.addEventListener("click", function () {
+    if (allCaptured() && !isComplete()) {
+      uploadAllPhotos();
+    } else {
+      capturePhoto();
+    }
+  });
   retakeButton.addEventListener("click", retakeCurrent);
   window.addEventListener("pagehide", stopCamera);
   window.addEventListener("resize", resizeWidget);
