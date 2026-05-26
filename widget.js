@@ -1,6 +1,18 @@
 (function () {
   "use strict";
 
+  var tasks = [
+    { key: "front_left_45", label: "车身左前 45 度" },
+    { key: "front_right_45", label: "车身右前 45 度" },
+    { key: "rear_left_45", label: "车身左后 45 度" },
+    { key: "rear_right_45", label: "车身右后 45 度" },
+    { key: "vin_plate", label: "VIN / 铭牌" },
+    { key: "front_seats", label: "前排座椅" },
+    { key: "rear_seats", label: "后排座椅" },
+    { key: "dashboard", label: "仪表台" },
+    { key: "odometer", label: "里程表读数" }
+  ];
+
   var video = document.getElementById("cameraVideo");
   var canvas = document.getElementById("photoCanvas");
   var preview = document.getElementById("photoPreview");
@@ -11,14 +23,26 @@
   var startCameraButton = document.getElementById("startCameraButton");
   var captureButton = document.getElementById("captureButton");
   var retakeButton = document.getElementById("retakeButton");
+  var stepProgress = document.getElementById("stepProgress");
+  var stepTitle = document.getElementById("stepTitle");
+  var taskHint = document.getElementById("taskHint");
+  var thumbs = document.getElementById("thumbs");
 
   var stream = null;
   var locationSnapshot = null;
-  var proofValue = "";
   var widgetReady = false;
+  var currentIndex = 0;
+  var photos = tasks.map(function (task) {
+    return {
+      key: task.key,
+      label: task.label,
+      imageDataUrl: "",
+      metadata: null
+    };
+  });
 
   var imageMaxWidth = 1280;
-  var jpegQuality = 0.88;
+  var jpegQuality = 0.86;
 
   function resizeWidget() {
     if (window.JFCustomWidget && typeof window.JFCustomWidget.requestFrameResize === "function") {
@@ -53,6 +77,107 @@
 
   function refreshClock() {
     timeText.textContent = "时间：" + getTimeSnapshot().local;
+  }
+
+  function completedCount() {
+    return photos.filter(function (item) {
+      return Boolean(item.imageDataUrl);
+    }).length;
+  }
+
+  function isComplete() {
+    return completedCount() === photos.length;
+  }
+
+  function buildValue() {
+    if (!isComplete()) return "";
+
+    return JSON.stringify({
+      proofMode: "camera-only-9-photos",
+      total: photos.length,
+      completedAt: new Date().toISOString(),
+      photos: photos.map(function (item, index) {
+        return {
+          index: index + 1,
+          key: item.key,
+          label: item.label,
+          imageDataUrl: item.imageDataUrl,
+          metadata: item.metadata
+        };
+      })
+    });
+  }
+
+  function sendCurrentValue() {
+    if (!window.JFCustomWidget || !widgetReady) return;
+
+    window.JFCustomWidget.sendData({
+      value: buildValue()
+    });
+  }
+
+  function renderThumbs() {
+    thumbs.innerHTML = "";
+
+    photos.forEach(function (photo, index) {
+      var tile = document.createElement("button");
+      tile.type = "button";
+      tile.className =
+        "thumb" +
+        (photo.imageDataUrl ? " done" : "") +
+        (index === currentIndex ? " active" : "");
+      tile.setAttribute("aria-label", photo.label);
+
+      var img = document.createElement("img");
+      img.alt = photo.label;
+      img.src = photo.imageDataUrl || "";
+
+      var label = document.createElement("span");
+      label.textContent = index + 1 + ". " + photo.label;
+
+      tile.appendChild(img);
+      tile.appendChild(label);
+      tile.addEventListener("click", function () {
+        currentIndex = index;
+        if (photo.imageDataUrl) {
+          preview.src = photo.imageDataUrl;
+          preview.hidden = false;
+          video.hidden = true;
+        } else if (stream) {
+          preview.hidden = true;
+          video.hidden = false;
+        }
+        render();
+      });
+
+      thumbs.appendChild(tile);
+    });
+
+    resizeWidget();
+  }
+
+  function render() {
+    var currentTask = tasks[currentIndex] || tasks[0];
+    var count = completedCount();
+
+    stepProgress.textContent = Math.min(currentIndex + 1, tasks.length) + "/" + tasks.length;
+    stepTitle.textContent = currentTask.label;
+    taskHint.textContent = "请拍摄：" + currentTask.label;
+
+    if (isComplete()) {
+      captureButton.textContent = "全部完成";
+      captureButton.disabled = true;
+      retakeButton.disabled = false;
+      setMessage("9 张照片已完成，可以提交 Jotform 表单。");
+    } else {
+      captureButton.textContent =
+        currentIndex < tasks.length - 1 ? "拍摄并进入下一张" : "拍摄最后一张";
+      captureButton.disabled = !stream;
+      retakeButton.disabled = !photos[currentIndex].imageDataUrl;
+      if (count > 0) setMessage("已完成 " + count + "/" + tasks.length + " 张。");
+    }
+
+    renderThumbs();
   }
 
   function requestLocation() {
@@ -139,8 +264,8 @@
       emptyState.hidden = true;
       startCameraButton.disabled = true;
       captureButton.disabled = false;
-      retakeButton.disabled = true;
-      resizeWidget();
+      retakeButton.disabled = Boolean(photos[currentIndex].imageDataUrl) ? false : true;
+      render();
     } catch (error) {
       setMessage("需要允许摄像头权限，才能现场拍照。" + error.message);
     }
@@ -157,7 +282,11 @@
         "m"
       : "GPS: unavailable";
 
-    var lines = ["现场拍照证明", "时间: " + meta.time.local, gpsLine];
+    var lines = [
+      meta.index + "/9 " + meta.label,
+      "时间: " + meta.time.local,
+      gpsLine
+    ];
     var padding = Math.max(14, Math.round(width * 0.018));
     var fontSize = Math.max(18, Math.round(width * 0.026));
     var lineHeight = Math.round(fontSize * 1.38);
@@ -177,12 +306,11 @@
     context.restore();
   }
 
-  function sendCurrentValue() {
-    if (!window.JFCustomWidget || !widgetReady) return;
+  function showCurrentLiveCamera() {
+    if (!stream) return;
 
-    window.JFCustomWidget.sendData({
-      value: proofValue
-    });
+    preview.hidden = true;
+    video.hidden = false;
   }
 
   function capturePhoto() {
@@ -191,14 +319,18 @@
       return;
     }
 
+    var task = tasks[currentIndex];
     var scale = Math.min(1, imageMaxWidth / video.videoWidth);
     var width = Math.round(video.videoWidth * scale);
     var height = Math.round(video.videoHeight * scale);
     var meta = {
+      index: currentIndex + 1,
+      key: task.key,
+      label: task.label,
       time: getTimeSnapshot(),
       location: locationSnapshot,
       browserUserAgent: navigator.userAgent,
-      proofMode: "camera-only",
+      proofMode: "camera-only-9-photos",
       fileUploadDisabled: true
     };
 
@@ -209,55 +341,54 @@
     context.drawImage(video, 0, 0, width, height);
     drawWatermark(context, width, height, meta);
 
-    var imageDataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
-    proofValue = JSON.stringify({
-      imageDataUrl: imageDataUrl,
-      metadata: meta
-    });
+    photos[currentIndex].imageDataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+    photos[currentIndex].metadata = meta;
 
-    preview.src = imageDataUrl;
-    preview.hidden = false;
-    video.hidden = true;
-    captureButton.disabled = true;
-    retakeButton.disabled = false;
-    setMessage("");
-    sendCurrentValue();
-    resizeWidget();
+    if (!isComplete()) {
+      var nextMissing = photos.findIndex(function (item) {
+        return !item.imageDataUrl;
+      });
+      currentIndex = nextMissing >= 0 ? nextMissing : currentIndex;
+      showCurrentLiveCamera();
+    } else {
+      preview.src = photos[currentIndex].imageDataUrl;
+      preview.hidden = false;
+      video.hidden = true;
+      sendCurrentValue();
+    }
+
+    render();
   }
 
-  function retakePhoto() {
-    proofValue = "";
-    preview.removeAttribute("src");
-    preview.hidden = true;
-    video.hidden = false;
-    captureButton.disabled = !stream;
-    retakeButton.disabled = true;
-    setMessage("");
+  function retakeCurrent() {
+    photos[currentIndex].imageDataUrl = "";
+    photos[currentIndex].metadata = null;
+    showCurrentLiveCamera();
     sendCurrentValue();
-    resizeWidget();
+    render();
   }
 
   function submitWidget() {
     if (!window.JFCustomWidget) return;
 
-    if (!proofValue) {
+    if (!isComplete()) {
       window.JFCustomWidget.sendSubmit({
         valid: false,
         value: "",
-        message: "请先完成现场拍照。"
+        message: "请先完成 9 张指定角度照片。"
       });
       return;
     }
 
     window.JFCustomWidget.sendSubmit({
       valid: true,
-      value: proofValue
+      value: buildValue()
     });
   }
 
   startCameraButton.addEventListener("click", startCamera);
   captureButton.addEventListener("click", capturePhoto);
-  retakeButton.addEventListener("click", retakePhoto);
+  retakeButton.addEventListener("click", retakeCurrent);
   window.addEventListener("pagehide", stopCamera);
   window.addEventListener("resize", resizeWidget);
 
@@ -274,5 +405,6 @@
     window.JFCustomWidget.subscribe("submit", submitWidget);
   }
 
+  render();
   resizeWidget();
 })();
