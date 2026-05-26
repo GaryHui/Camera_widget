@@ -2,15 +2,15 @@
   "use strict";
 
   var tasks = [
-    { key: "front_left_45", label: "车身左前 45 度" },
-    { key: "front_right_45", label: "车身右前 45 度" },
-    { key: "rear_left_45", label: "车身左后 45 度" },
-    { key: "rear_right_45", label: "车身右后 45 度" },
-    { key: "vin_plate", label: "VIN / 铭牌" },
-    { key: "front_seats", label: "前排座椅" },
-    { key: "rear_seats", label: "后排座椅" },
-    { key: "dashboard", label: "仪表台" },
-    { key: "odometer", label: "里程表读数" }
+    { key: "front_left_45", label: "Exterior front-left 45 degrees" },
+    { key: "front_right_45", label: "Exterior front-right 45 degrees" },
+    { key: "rear_left_45", label: "Exterior rear-left 45 degrees" },
+    { key: "rear_right_45", label: "Exterior rear-right 45 degrees" },
+    { key: "vin_plate", label: "VIN / vehicle plate" },
+    { key: "front_seats", label: "Interior front seats" },
+    { key: "rear_seats", label: "Interior rear seats" },
+    { key: "dashboard", label: "Dashboard" },
+    { key: "odometer", label: "Odometer reading" }
   ];
 
   var video = document.getElementById("cameraVideo");
@@ -32,12 +32,16 @@
   var locationSnapshot = null;
   var widgetReady = false;
   var currentIndex = 0;
+  var captureToken = "jf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  var isUploading = false;
   var photos = tasks.map(function (task) {
     return {
       key: task.key,
       label: task.label,
       imageDataUrl: "",
-      metadata: null
+      metadata: null,
+      upload: null,
+      error: ""
     };
   });
 
@@ -76,24 +80,25 @@
   }
 
   function refreshClock() {
-    timeText.textContent = "时间：" + getTimeSnapshot().local;
+    timeText.textContent = "Time: " + getTimeSnapshot().local;
   }
 
-  function completedCount() {
+  function uploadedCount() {
     return photos.filter(function (item) {
-      return Boolean(item.imageDataUrl);
+      return Boolean(item.upload && (item.upload.url || item.upload.key) && item.upload.sha256);
     }).length;
   }
 
   function isComplete() {
-    return completedCount() === photos.length;
+    return uploadedCount() === photos.length;
   }
 
   function buildValue() {
     if (!isComplete()) return "";
 
     return JSON.stringify({
-      proofMode: "camera-only-9-photos",
+      proofMode: "camera-only-9-photos-linked",
+      captureToken: captureToken,
       total: photos.length,
       completedAt: new Date().toISOString(),
       photos: photos.map(function (item, index) {
@@ -101,7 +106,13 @@
           index: index + 1,
           key: item.key,
           label: item.label,
-          imageDataUrl: item.imageDataUrl,
+          url: item.upload.url,
+          storageKey: item.upload.key,
+          metadataKey: item.upload.metadataKey,
+          sha256: item.upload.sha256,
+          bytes: item.upload.bytes,
+          contentType: item.upload.contentType,
+          uploadedAt: item.upload.uploadedAt,
           metadata: item.metadata
         };
       })
@@ -124,7 +135,8 @@
       tile.type = "button";
       tile.className =
         "thumb" +
-        (photo.imageDataUrl ? " done" : "") +
+        (photo.upload ? " done" : "") +
+        (photo.error ? " error" : "") +
         (index === currentIndex ? " active" : "");
       tile.setAttribute("aria-label", photo.label);
 
@@ -133,7 +145,8 @@
       img.src = photo.imageDataUrl || "";
 
       var label = document.createElement("span");
-      label.textContent = index + 1 + ". " + photo.label;
+      var state = photo.upload ? " uploaded" : photo.error ? " failed" : "";
+      label.textContent = index + 1 + ". " + photo.label + state;
 
       tile.appendChild(img);
       tile.appendChild(label);
@@ -158,23 +171,27 @@
 
   function render() {
     var currentTask = tasks[currentIndex] || tasks[0];
-    var count = completedCount();
+    var count = uploadedCount();
 
     stepProgress.textContent = Math.min(currentIndex + 1, tasks.length) + "/" + tasks.length;
     stepTitle.textContent = currentTask.label;
-    taskHint.textContent = "请拍摄：" + currentTask.label;
+    taskHint.textContent = "Capture: " + currentTask.label;
 
-    if (isComplete()) {
-      captureButton.textContent = "全部完成";
+    if (isUploading) {
+      captureButton.textContent = "Uploading...";
+      captureButton.disabled = true;
+      retakeButton.disabled = true;
+    } else if (isComplete()) {
+      captureButton.textContent = "All uploaded";
       captureButton.disabled = true;
       retakeButton.disabled = false;
-      setMessage("9 张照片已完成，可以提交 Jotform 表单。");
+      setMessage("All 9 photos are uploaded. You can submit the Jotform form.");
     } else {
       captureButton.textContent =
-        currentIndex < tasks.length - 1 ? "拍摄并进入下一张" : "拍摄最后一张";
+        currentIndex < tasks.length - 1 ? "Capture and upload next" : "Capture final photo";
       captureButton.disabled = !stream;
       retakeButton.disabled = !photos[currentIndex].imageDataUrl;
-      if (count > 0) setMessage("已完成 " + count + "/" + tasks.length + " 张。");
+      if (count > 0) setMessage("Uploaded " + count + "/" + tasks.length + " photos.");
     }
 
     renderThumbs();
@@ -182,11 +199,11 @@
 
   function requestLocation() {
     if (!navigator.geolocation) {
-      gpsText.textContent = "定位：浏览器不支持";
+      gpsText.textContent = "Location: unsupported";
       return Promise.resolve(null);
     }
 
-    gpsText.textContent = "定位：正在获取";
+    gpsText.textContent = "Location: requesting";
 
     return new Promise(function (resolve) {
       navigator.geolocation.getCurrentPosition(
@@ -203,7 +220,7 @@
           };
 
           gpsText.textContent =
-            "定位：" +
+            "GPS: " +
             locationSnapshot.latitude.toFixed(6) +
             ", " +
             locationSnapshot.longitude.toFixed(6) +
@@ -216,8 +233,8 @@
         },
         function (error) {
           locationSnapshot = null;
-          gpsText.textContent = "定位：未授权";
-          setMessage("需要允许定位权限，才能生成带定位证明的照片。" + error.message);
+          gpsText.textContent = "Location: denied";
+          setMessage("Location permission is required for proof photos. " + error.message);
           resolve(null);
         },
         {
@@ -244,7 +261,7 @@
     await requestLocation();
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      setMessage("当前浏览器不支持摄像头调用。");
+      setMessage("Camera access is not available in this browser.");
       return;
     }
 
@@ -267,7 +284,7 @@
       retakeButton.disabled = Boolean(photos[currentIndex].imageDataUrl) ? false : true;
       render();
     } catch (error) {
-      setMessage("需要允许摄像头权限，才能现场拍照。" + error.message);
+      setMessage("Camera permission is required. " + error.message);
     }
   }
 
@@ -284,7 +301,7 @@
 
     var lines = [
       meta.index + "/9 " + meta.label,
-      "时间: " + meta.time.local,
+      "Time: " + meta.time.local,
       gpsLine
     ];
     var padding = Math.max(14, Math.round(width * 0.018));
@@ -296,7 +313,7 @@
     context.fillStyle = "rgba(0, 0, 0, 0.66)";
     context.fillRect(0, height - boxHeight, width, boxHeight);
     context.fillStyle = "#ffffff";
-    context.font = "700 " + fontSize + "px Arial, Microsoft YaHei, sans-serif";
+    context.font = "700 " + fontSize + "px Arial, sans-serif";
     context.textBaseline = "top";
 
     lines.forEach(function (line, index) {
@@ -313,9 +330,35 @@
     video.hidden = false;
   }
 
-  function capturePhoto() {
+  async function uploadPhoto(imageDataUrl, metadata) {
+    var response = await fetch("/api/upload", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        captureToken: captureToken,
+        index: metadata.index,
+        photoKey: metadata.key,
+        imageDataUrl: imageDataUrl,
+        metadata: metadata
+      })
+    });
+
+    var payload = await response.json().catch(function () {
+      return {};
+    });
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.error || "Upload failed");
+    }
+
+    return payload;
+  }
+
+  async function capturePhoto() {
     if (!stream || !video.videoWidth || !video.videoHeight) {
-      setMessage("摄像头还没有准备好，请稍等。");
+      setMessage("Camera is not ready yet.");
       return;
     }
 
@@ -330,7 +373,7 @@
       time: getTimeSnapshot(),
       location: locationSnapshot,
       browserUserAgent: navigator.userAgent,
-      proofMode: "camera-only-9-photos",
+      proofMode: "camera-only-9-photos-linked",
       fileUploadDisabled: true
     };
 
@@ -341,28 +384,46 @@
     context.drawImage(video, 0, 0, width, height);
     drawWatermark(context, width, height, meta);
 
-    photos[currentIndex].imageDataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+    var imageDataUrl = canvas.toDataURL("image/jpeg", jpegQuality);
+    photos[currentIndex].imageDataUrl = imageDataUrl;
     photos[currentIndex].metadata = meta;
+    photos[currentIndex].upload = null;
+    photos[currentIndex].error = "";
+    preview.src = imageDataUrl;
+    preview.hidden = false;
+    video.hidden = true;
 
-    if (!isComplete()) {
-      var nextMissing = photos.findIndex(function (item) {
-        return !item.imageDataUrl;
-      });
-      currentIndex = nextMissing >= 0 ? nextMissing : currentIndex;
-      showCurrentLiveCamera();
-    } else {
-      preview.src = photos[currentIndex].imageDataUrl;
-      preview.hidden = false;
-      video.hidden = true;
-      sendCurrentValue();
-    }
-
+    isUploading = true;
+    setMessage("Uploading " + meta.index + "/9: " + meta.label + "...");
     render();
+
+    try {
+      photos[currentIndex].upload = await uploadPhoto(imageDataUrl, meta);
+      photos[currentIndex].error = "";
+
+      if (!isComplete()) {
+        var nextMissing = photos.findIndex(function (item) {
+          return !item.upload;
+        });
+        currentIndex = nextMissing >= 0 ? nextMissing : currentIndex;
+        showCurrentLiveCamera();
+      } else {
+        sendCurrentValue();
+      }
+    } catch (error) {
+      photos[currentIndex].error = error.message || "Upload failed";
+      setMessage("Upload failed for " + meta.label + ". Please retake this photo.");
+    } finally {
+      isUploading = false;
+      render();
+    }
   }
 
   function retakeCurrent() {
     photos[currentIndex].imageDataUrl = "";
     photos[currentIndex].metadata = null;
+    photos[currentIndex].upload = null;
+    photos[currentIndex].error = "";
     showCurrentLiveCamera();
     sendCurrentValue();
     render();
@@ -375,7 +436,7 @@
       window.JFCustomWidget.sendSubmit({
         valid: false,
         value: "",
-        message: "请先完成 9 张指定角度照片。"
+        message: "Please complete and upload all 9 required photos."
       });
       return;
     }

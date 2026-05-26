@@ -134,6 +134,14 @@ button:disabled {
   opacity: 1;
 }
 
+.thumb.error {
+  border-color: #d92d20;
+}
+
+.thumb.error span {
+  background: rgba(160, 32, 24, 0.86);
+}
+
 .thumb.active {
   outline: 3px solid #0f62fe;
   outline-offset: -3px;
