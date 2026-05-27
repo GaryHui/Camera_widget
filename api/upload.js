@@ -74,6 +74,11 @@ function publicUrl(config, key) {
   return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+function dropboxHomeUrl(path) {
+  const clean = String(path || "").replace(/^\/+/, "");
+  return clean ? "https://www.dropbox.com/home/" + clean.split("/").map(encodeURIComponent).join("/") : null;
+}
+
 async function uploadToDropbox({ req, body, image, imageKey, metadataKey, metadata, sha256 }) {
   const installKey = safeInstallKey(body.installKey || (body.formId ? "form-" + body.formId : ""));
   const connection = await getDropboxConnection(installKey);
@@ -103,7 +108,16 @@ async function uploadToDropbox({ req, body, image, imageKey, metadataKey, metada
   );
 
   const url = await getDropboxSharedUrl(accessToken, imagePath);
-  const folderUrl = await getDropboxSharedUrl(accessToken, submissionFolderPath, { raw: false });
+  let folderUrl = dropboxHomeUrl(submissionFolderPath);
+  try {
+    folderUrl = await getDropboxSharedUrl(accessToken, submissionFolderPath, { raw: false }) || folderUrl;
+  } catch (error) {
+    console.warn("dropbox_folder_link_failed", {
+      message: error.message,
+      dropboxStatus: error.dropboxStatus,
+      dropboxPayload: error.dropboxPayload
+    });
+  }
 
   return {
     ok: true,
@@ -225,7 +239,7 @@ export default async function handler(req, res) {
       dropboxPayload: error.dropboxPayload
     });
     res.status(status).json({
-      error: status >= 500 ? "Upload failed" : error.message,
+      error: error.message || "Upload failed",
       code: error.code,
       detail: error.message
     });

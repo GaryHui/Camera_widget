@@ -585,7 +585,7 @@
     });
 
     if (!response.ok || !payload.ok) {
-      throw new Error(payload.error || "Upload failed");
+      throw new Error(payload.detail || payload.error || "Upload failed");
     }
 
     return payload;

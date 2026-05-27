@@ -87,6 +87,11 @@ function findProofCameraData(body) {
   return null;
 }
 
+function dropboxHomeUrl(path) {
+  const clean = String(path || "").replace(/^\/+/, "");
+  return clean ? "https://www.dropbox.com/home/" + clean.split("/").map(encodeURIComponent).join("/") : null;
+}
+
 async function downloadJotformPdf({ formId, submissionId }) {
   const url = new URL("https://www.jotform.com/server.php");
   url.searchParams.set("action", "getSubmissionPDF");
@@ -198,7 +203,16 @@ export default async function handler(req, res) {
     );
 
     const pdfUrl = await getDropboxSharedUrl(accessToken, pdfPath);
-    const folderUrl = await getDropboxSharedUrl(accessToken, folderPath, { raw: false });
+    let folderUrl = dropboxHomeUrl(folderPath);
+    try {
+      folderUrl = await getDropboxSharedUrl(accessToken, folderPath, { raw: false }) || folderUrl;
+    } catch (error) {
+      console.warn("dropbox_folder_link_failed", {
+        message: error.message,
+        dropboxStatus: error.dropboxStatus,
+        dropboxPayload: error.dropboxPayload
+      });
+    }
     const jotformUpdate = await updateJotformSubmissionLink({
       submissionId,
       field: proof.dropboxField || process.env.JOTFORM_DROPBOX_FIELD || "",
