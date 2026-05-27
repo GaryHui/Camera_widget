@@ -180,6 +180,36 @@ You can also use field IDs:
 https://jotform-proof-camera-standalone.vercel.app/index.html?installKey=vehicle-inspection&folder=vehicle-inspection&nameFieldId=3&emailFieldId=4
 ```
 
+If Jotform's widget API does not return the field values, the widget also tries parent-form DOM selectors. For common Jotform fields:
+
+```text
+nameFieldId=3
+```
+
+reads:
+
+```text
+#first_3 + #last_3
+```
+
+and:
+
+```text
+emailFieldId=4
+```
+
+reads:
+
+```text
+#input_4
+```
+
+You can pass explicit selectors if needed:
+
+```text
+nameSelector=%23first_3&emailSelector=%23input_4
+```
+
 3. After `Upload all photos`, the customer must still submit the Jotform form. The submission value includes:
 
 ```json

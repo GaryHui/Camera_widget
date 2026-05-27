@@ -46,6 +46,8 @@
   var emailField = params.get("emailField") || params.get("emailFieldName") || "";
   var nameFieldId = params.get("nameFieldId") || "";
   var emailFieldId = params.get("emailFieldId") || "";
+  var nameSelector = params.get("nameSelector") || "";
+  var emailSelector = params.get("emailSelector") || "";
   var jotformSubmitter = {
     name: customer,
     email: email
@@ -167,8 +169,45 @@
     render();
   }
 
+  function readParentValue(selector) {
+    if (!selector) return "";
+    try {
+      var doc = window.parent && window.parent.document;
+      if (!doc) return "";
+      var el = doc.querySelector(selector);
+      if (!el) return "";
+      return stringifyFieldValue(el.value || el.textContent || "");
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function readParentNameById(id) {
+    if (!id) return "";
+    var first = readParentValue("#first_" + id);
+    var last = readParentValue("#last_" + id);
+    var full = [first, last].filter(Boolean).join(" ").trim();
+    return full || readParentValue("#input_" + id);
+  }
+
+  function readParentEmailById(id) {
+    if (!id) return "";
+    return readParentValue("#input_" + id);
+  }
+
+  function readParentSubmitter() {
+    var name = readParentValue(nameSelector) || readParentNameById(nameFieldId);
+    var mail = readParentValue(emailSelector) || readParentEmailById(emailFieldId);
+    if (name) jotformSubmitter.name = name;
+    if (mail) jotformSubmitter.email = mail;
+  }
+
   function readJotformSubmitter() {
-    if (!window.JFCustomWidget) return;
+    readParentSubmitter();
+    if (!window.JFCustomWidget) {
+      render();
+      return;
+    }
 
     if ((nameField || emailField) && typeof JFCustomWidget.getFieldsValueByName === "function") {
       JFCustomWidget.getFieldsValueByName([nameField, emailField].filter(Boolean), applySubmitterFromPayload);
@@ -177,6 +216,7 @@
     if ((nameFieldId || emailFieldId) && typeof JFCustomWidget.getFieldsValueById === "function") {
       JFCustomWidget.getFieldsValueById([nameFieldId, emailFieldId].filter(Boolean), applySubmitterFromPayload);
     }
+    render();
   }
 
   function listenToJotformSubmitterFields() {
@@ -745,6 +785,7 @@
 
   refreshClock();
   setInterval(refreshClock, 1000);
+  setInterval(readJotformSubmitter, 1000);
 
   if (window.JFCustomWidget) {
     window.JFCustomWidget.subscribe("ready", function (data) {
