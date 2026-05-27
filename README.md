@@ -160,6 +160,35 @@ The Jotform submission value includes:
 
 The form owner can also use `Disconnect` in the widget to remove the Dropbox connection for that `installKey`.
 
+## Matching photos to Jotform submissions
+
+The widget uploads photos before the final Jotform submit, so every upload batch has a stable `captureToken` and `dropboxFolderUrl`. These are included in the widget value that Jotform saves on submit.
+
+Recommended setup:
+
+1. Add this widget as a real Jotform widget field, not only a plain iframe, so `JFCustomWidget.sendSubmit` can save the value.
+2. Use URL parameters or Jotform prefill values to pass submitter information:
+
+```text
+https://jotform-proof-camera-standalone.vercel.app/index.html?installKey=vehicle-inspection&folder=vehicle-inspection&customer={customerName}&email={customerEmail}
+```
+
+3. After `Upload all photos`, the customer must still submit the Jotform form. The submission value includes:
+
+```json
+{
+  "captureToken": "jf-example",
+  "dropboxFolderUrl": "https://dl.dropboxusercontent.com/...",
+  "dropboxFolderPath": "/JotformProof/...",
+  "submitter": {
+    "name": "John Smith",
+    "email": "john@example.com"
+  }
+}
+```
+
+If a customer uploads photos but never submits the Jotform form, the files will remain in Dropbox as an upload batch folder. Use the `captureToken`, timestamp, and optional `customer/email` folder name to identify or clean up those orphaned uploads.
+
 ## Security note
 
 This improves evidence quality but is not absolute proof. Users may still spoof location, device time, or camera input. For higher proof strength, store server receipt time, verify hashes, restrict bucket writes to the serverless API only, and optionally add a one-time challenge code.

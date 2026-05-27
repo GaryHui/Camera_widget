@@ -173,8 +173,9 @@
       tile.type = "button";
       tile.className =
         "thumb" +
-        (photo.upload ? " done" : "") +
-        (photo.error ? " error" : "") +
+        (photo.imageDataUrl ? " captured" : "") +
+        (photo.upload ? " uploaded" : "") +
+        (photo.error ? " failed" : "") +
         (index === currentIndex ? " active" : "");
       tile.setAttribute("aria-label", photo.label);
 
@@ -183,7 +184,7 @@
       img.src = photo.imageDataUrl || "";
 
       var label = document.createElement("span");
-      var state = photo.upload ? " uploaded" : photo.error ? " failed" : "";
+      var state = photo.upload ? " uploaded" : photo.error ? " failed" : photo.imageDataUrl ? " captured" : "";
       label.textContent = index + 1 + ". " + photo.label + state;
 
       tile.appendChild(img);
@@ -224,7 +225,7 @@
       captureButton.textContent = "All uploaded";
       captureButton.disabled = true;
       retakeButton.disabled = false;
-      setMessage("All 9 photos are uploaded. You can submit the Jotform form.");
+      setMessage("All 9 photos are uploaded. Submit the Jotform form to attach these links to this submission.");
     } else if (allCaptured()) {
       captureButton.textContent = "Upload all photos";
       captureButton.disabled = !dropboxConnected;
@@ -501,7 +502,7 @@
       }
 
       sendCurrentValue();
-      setMessage("All 9 photos are uploaded. You can submit the Jotform form.");
+      setMessage("All 9 photos are uploaded. Submit the Jotform form to attach these links to this submission.");
     } catch (error) {
       photos[currentIndex].upload = null;
       photos[currentIndex].error = error.message || "Upload failed";

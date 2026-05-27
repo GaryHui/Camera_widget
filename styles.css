@@ -130,16 +130,31 @@ button:disabled {
   opacity: 0.35;
 }
 
-.thumb.done img {
+.thumb.captured {
+  border-color: #98a2b3;
+}
+
+.thumb.captured img,
+.thumb.uploaded img {
   opacity: 1;
 }
 
-.thumb.error {
-  border-color: #d92d20;
+.thumb.uploaded {
+  border-color: #12b76a;
+  box-shadow: 0 0 0 2px rgba(18, 183, 106, 0.35) inset;
 }
 
-.thumb.error span {
-  background: rgba(160, 32, 24, 0.86);
+.thumb.uploaded span {
+  background: rgba(4, 120, 87, 0.9);
+}
+
+.thumb.failed {
+  border-color: #d92d20;
+  box-shadow: 0 0 0 2px rgba(217, 45, 32, 0.35) inset;
+}
+
+.thumb.failed span {
+  background: rgba(160, 32, 24, 0.9);
 }
 
 .thumb.active {
