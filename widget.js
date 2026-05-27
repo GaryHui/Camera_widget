@@ -30,8 +30,6 @@
   var taskHint = document.getElementById("taskHint");
   var thumbs = document.getElementById("thumbs");
   var dropboxText = document.getElementById("dropboxText");
-  var customerNameInput = document.getElementById("customerNameInput");
-  var customerEmailInput = document.getElementById("customerEmailInput");
 
   var stream = null;
   var locationSnapshot = null;
@@ -44,6 +42,14 @@
   var ownerMode = params.get("owner") === "1" || params.get("admin") === "1";
   var customer = params.get("customer") || params.get("name") || "";
   var email = params.get("email") || "";
+  var nameField = params.get("nameField") || params.get("nameFieldName") || "";
+  var emailField = params.get("emailField") || params.get("emailFieldName") || "";
+  var nameFieldId = params.get("nameFieldId") || "";
+  var emailFieldId = params.get("emailFieldId") || "";
+  var jotformSubmitter = {
+    name: customer,
+    email: email
+  };
   var submissionId = params.get("submission") || params.get("submissionId") || "";
   var dropboxConnected = false;
   var captureToken = "jf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
@@ -99,8 +105,8 @@
 
   function currentSubmitter() {
     return {
-      name: customerNameInput.value.trim(),
-      email: customerEmailInput.value.trim(),
+      name: String(jotformSubmitter.name || "").trim(),
+      email: String(jotformSubmitter.email || "").trim(),
       submissionId: submissionId
     };
   }
@@ -112,6 +118,74 @@
   function submitterReady() {
     var submitter = currentSubmitter();
     return Boolean(submitter.name && validEmail(submitter.email));
+  }
+
+  function stringifyFieldValue(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return value.trim();
+    if (typeof value === "number") return String(value);
+    if (typeof value === "object") {
+      if (value.full) return String(value.full).trim();
+      if (value.fullName) return String(value.fullName).trim();
+      if (value.email) return String(value.email).trim();
+      if (value.answer) return stringifyFieldValue(value.answer);
+
+      var parts = [
+        value.first,
+        value.middle,
+        value.last
+      ].filter(Boolean);
+      if (parts.length) return parts.join(" ").trim();
+
+      return Object.keys(value).map(function (key) {
+        return value[key];
+      }).filter(Boolean).join(" ").trim();
+    }
+    return "";
+  }
+
+  function valueFromJotformPayload(payload, key) {
+    if (!payload || !key) return "";
+    if (payload[key] != null) return stringifyFieldValue(payload[key]);
+    if (payload.data && payload.data[key] != null) return stringifyFieldValue(payload.data[key]);
+    if (Array.isArray(payload)) {
+      for (var i = 0; i < payload.length; i++) {
+        var item = payload[i];
+        if (item && (String(item.name) === String(key) || String(item.id) === String(key) || String(item.qid) === String(key))) {
+          return stringifyFieldValue(item.value || item.answer || item.text);
+        }
+      }
+    }
+    return "";
+  }
+
+  function applySubmitterFromPayload(payload) {
+    var name = valueFromJotformPayload(payload, nameField || nameFieldId);
+    var mail = valueFromJotformPayload(payload, emailField || emailFieldId);
+    if (name) jotformSubmitter.name = name;
+    if (mail) jotformSubmitter.email = mail;
+    render();
+  }
+
+  function readJotformSubmitter() {
+    if (!window.JFCustomWidget) return;
+
+    if ((nameField || emailField) && typeof JFCustomWidget.getFieldsValueByName === "function") {
+      JFCustomWidget.getFieldsValueByName([nameField, emailField].filter(Boolean), applySubmitterFromPayload);
+    }
+
+    if ((nameFieldId || emailFieldId) && typeof JFCustomWidget.getFieldsValueById === "function") {
+      JFCustomWidget.getFieldsValueById([nameFieldId, emailFieldId].filter(Boolean), applySubmitterFromPayload);
+    }
+  }
+
+  function listenToJotformSubmitterFields() {
+    if (!window.JFCustomWidget || typeof JFCustomWidget.listenFromField !== "function") return;
+
+    [nameField, emailField, nameFieldId, emailFieldId].filter(Boolean).forEach(function (field) {
+      JFCustomWidget.listenFromField(field, "change", readJotformSubmitter);
+      JFCustomWidget.listenFromField(field, "keyup", readJotformSubmitter);
+    });
   }
 
   function uploadedCount() {
@@ -666,15 +740,11 @@
   retakeButton.addEventListener("click", retakeCurrent);
   connectDropboxButton.addEventListener("click", connectDropbox);
   disconnectDropboxButton.addEventListener("click", disconnectDropbox);
-  customerNameInput.addEventListener("input", render);
-  customerEmailInput.addEventListener("input", render);
   window.addEventListener("pagehide", stopCamera);
   window.addEventListener("resize", resizeWidget);
 
   refreshClock();
   setInterval(refreshClock, 1000);
-  customerNameInput.value = customer;
-  customerEmailInput.value = email;
 
   if (window.JFCustomWidget) {
     window.JFCustomWidget.subscribe("ready", function (data) {
@@ -682,6 +752,8 @@
       formId = formId || (data && (data.formID || data.formId || data.form_id)) || "";
       formFolder = formFolder || (formId ? "form-" + formId : "default");
       installKey = installKey || (formId ? "form-" + formId : "");
+      readJotformSubmitter();
+      listenToJotformSubmitterFields();
       checkDropboxStatus();
       sendCurrentValue();
       resizeWidget();
