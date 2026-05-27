@@ -207,10 +207,15 @@ export default async function handler(req, res) {
     res.status(200).json(result);
   } catch (error) {
     const status = error.statusCode || 500;
+    console.error("upload_failed", {
+      status,
+      code: error.code,
+      message: error.message
+    });
     res.status(status).json({
       error: status >= 500 ? "Upload failed" : error.message,
       code: error.code,
-      detail: process.env.NODE_ENV === "development" ? error.message : undefined
+      detail: error.message
     });
   }
 }
