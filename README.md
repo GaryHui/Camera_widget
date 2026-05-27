@@ -40,10 +40,9 @@ Each photo is watermarked with:
 1. The customer taps `Start camera`.
 2. The customer captures each required angle in order.
 3. `Retake` only clears and retakes the currently selected angle.
-4. The widget checks the Jotform name and email fields.
-5. After all 9 photos are captured, the main button changes to `Upload all photos`.
-6. The customer taps `Upload all photos`; the widget uploads the photos to the connected Dropbox and sends only links, metadata, and hashes to Jotform.
-7. The Jotform form can be submitted after upload is complete.
+4. After all 9 photos are captured, the main button changes to `Upload all photos`.
+5. The customer taps `Upload all photos`; the widget uploads the photos to the connected Dropbox and sends only links, metadata, and hashes to Jotform.
+6. The Jotform form can be submitted only after all 9 photos are uploaded successfully.
 
 ## Jotform value
 
@@ -145,6 +144,18 @@ In Jotform:
 
 After Dropbox is connected for that form, customers can fill out the form without seeing Dropbox login.
 
+For the form owner only, open the widget URL with `owner=1` to show Dropbox management buttons:
+
+```text
+https://jotform-proof-camera-standalone.vercel.app/index.html?installKey=vehicle-inspection&folder=vehicle-inspection&owner=1
+```
+
+- `Connect Dropbox` connects the form owner's Dropbox.
+- `Reconnect Dropbox` replaces the existing Dropbox authorization.
+- `Disconnect` removes the saved Dropbox refresh token for that `installKey`.
+
+Do not include `owner=1` in the public/customer form URL.
+
 ## Optional folder grouping
 
 You can pass extra query parameters to make Dropbox folders easier to identify:
@@ -207,7 +218,7 @@ The widget uploads photos before the final Jotform submit, so every upload batch
 Recommended setup:
 
 1. Add this widget as a real Jotform widget field, not only a plain iframe, so `JFCustomWidget.sendSubmit` can save the value.
-2. The widget requires the Jotform form to have name and email values before upload. Pass the Jotform field unique names or field IDs in the widget URL:
+2. Name and email are optional for upload, but useful for clearer Dropbox folder names and metadata. Pass the Jotform field unique names or field IDs in the widget URL if you know them:
 
 ```text
 https://jotform-proof-camera-standalone.vercel.app/index.html?installKey=vehicle-inspection&folder=vehicle-inspection&nameField=q3_name&emailField=q4_email
@@ -249,7 +260,7 @@ You can pass explicit selectors if needed:
 nameSelector=%23first_3&emailSelector=%23input_4
 ```
 
-3. After `Upload all photos`, the customer must still submit the Jotform form. The submission value includes:
+3. If name and email are unavailable, the widget still uploads photos and uses a generated capture folder such as `unknown-20260527-105055`. After `Upload all photos`, the customer must still submit the Jotform form. The widget blocks Jotform submit until all 9 photos are uploaded successfully. The submission value includes:
 
 ```json
 {

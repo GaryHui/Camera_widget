@@ -118,15 +118,6 @@
     };
   }
 
-  function validEmail(value) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
-  }
-
-  function submitterReady() {
-    var submitter = currentSubmitter();
-    return Boolean(submitter.name && validEmail(submitter.email));
-  }
-
   function folderTimestamp(date) {
     function pad(value) {
       return String(value).padStart(2, "0");
@@ -402,7 +393,7 @@
       setMessage("All 9 photos are uploaded. Submit the Jotform form to attach these links to this submission.");
     } else if (allCaptured()) {
       captureButton.textContent = "Upload all photos";
-      captureButton.disabled = !dropboxConnected || !submitterReady();
+      captureButton.disabled = !dropboxConnected;
       retakeButton.disabled = !photos[currentIndex].imageDataUrl;
       if (!photos[currentIndex].imageDataUrl) {
         setMessage("Retake the selected photo, then upload all photos.");
@@ -410,9 +401,7 @@
         setMessage("Upload failed for " + photos[currentIndex].label + ". Tap Upload all photos to retry, or Retake this item.");
       } else {
         setMessage(dropboxConnected
-          ? submitterReady()
-            ? "All 9 photos are captured. Tap Upload all photos to send them to Dropbox."
-            : "Enter name and a valid email before uploading photos."
+          ? "All 9 photos are captured. Tap Upload all photos to send them to Dropbox."
           : ownerMode
             ? "All 9 photos are captured. Connect Dropbox before uploading."
             : "This form is not ready for uploads. Please contact the form owner.");
@@ -685,10 +674,6 @@
       setMessage(ownerMode
         ? "Dropbox is not connected. Connect Dropbox before uploading."
         : "This form is not ready for uploads. Please contact the form owner.");
-      return;
-    }
-    if (!submitterReady()) {
-      setMessage("Enter name and a valid email before uploading photos.");
       return;
     }
 
