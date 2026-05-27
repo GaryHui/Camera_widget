@@ -25,7 +25,12 @@ export default async function handler(req, res) {
 
     const config = getDropboxAppConfig(req);
     const token = await exchangeDropboxCode(config, code);
-    const account = await getCurrentDropboxAccount(token.access_token);
+    let account = {};
+    try {
+      account = await getCurrentDropboxAccount(token.access_token);
+    } catch (_) {
+      account = {};
+    }
 
     await saveDropboxConnection(stateData.installKey, {
       refreshToken: token.refresh_token,
