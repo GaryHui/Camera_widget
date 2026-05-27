@@ -521,11 +521,13 @@
       dropboxText.textContent = dropboxConnected
         ? "Dropbox: connected" + (status.accountEmail ? " (" + status.accountEmail + ")" : "")
         : "Dropbox: not connected";
-      connectDropboxButton.hidden = dropboxConnected;
+      connectDropboxButton.hidden = false;
+      connectDropboxButton.textContent = dropboxConnected ? "Reconnect Dropbox" : "Connect Dropbox";
     } catch (error) {
       dropboxConnected = false;
       dropboxText.textContent = "Dropbox: status failed";
       connectDropboxButton.hidden = false;
+      connectDropboxButton.textContent = "Connect Dropbox";
     }
 
     render();

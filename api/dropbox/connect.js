@@ -31,6 +31,8 @@ export default async function handler(req, res) {
     url.searchParams.set("response_type", "code");
     url.searchParams.set("token_access_type", "offline");
     url.searchParams.set("scope", "files.content.write sharing.write sharing.read");
+    url.searchParams.set("include_granted_scopes", "user");
+    url.searchParams.set("force_reapprove", "true");
     url.searchParams.set("state", state);
     url.searchParams.set("redirect_uri", config.redirectUri);
 
