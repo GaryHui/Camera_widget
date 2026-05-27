@@ -30,6 +30,7 @@ export default async function handler(req, res) {
     url.searchParams.set("client_id", config.appKey);
     url.searchParams.set("response_type", "code");
     url.searchParams.set("token_access_type", "offline");
+    url.searchParams.set("scope", "files.content.write sharing.write sharing.read");
     url.searchParams.set("state", state);
     url.searchParams.set("redirect_uri", config.redirectUri);
 
