@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.699.0"
+    "@aws-sdk/client-s3": "^3.699.0",
+    "pdf-lib": "^1.17.1"
   }
 }

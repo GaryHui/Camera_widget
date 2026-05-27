@@ -207,10 +207,11 @@ After submission, the webhook uploads:
 
 ```text
 /JotformProof/.../jotform-submission-{submissionID}.pdf
+/JotformProof/.../proof-photos-{submissionID}.pdf
 /JotformProof/.../jotform-submission-{submissionID}-webhook.json
 ```
 
-The widget value starts with the Dropbox folder URL, so the form owner can click that link from the Jotform submission table and see the 9 photos plus the submitted PDF in one folder.
+The `proof-photos` PDF includes the 9 uploaded photos plus their labels, capture time, GPS, Dropbox URL, and SHA-256 hash. The widget value starts with the Dropbox folder URL, so the form owner can click that link from the Jotform submission table and see the 9 photos plus the PDFs in one folder.
 
 If you want a separate native Jotform field/column to be filled automatically after submit, add a normal Short Text field to the form and label it exactly:
 
