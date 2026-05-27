@@ -39,6 +39,7 @@
   var formId = params.get("formId") || "";
   var formFolder = params.get("folder") || "";
   var installKey = params.get("installKey") || "";
+  var ownerMode = params.get("owner") === "1" || params.get("admin") === "1";
   var customer = params.get("customer") || params.get("name") || "";
   var email = params.get("email") || "";
   var submissionId = params.get("submission") || params.get("submissionId") || "";
@@ -230,7 +231,9 @@
       retakeButton.disabled = !photos[currentIndex].imageDataUrl;
       setMessage(dropboxConnected
         ? "All 9 photos are captured. Tap Upload all photos to send them to Dropbox."
-        : "All 9 photos are captured. Connect Dropbox before uploading.");
+        : ownerMode
+          ? "All 9 photos are captured. Connect Dropbox before uploading."
+          : "This form is not ready for uploads. Please contact the form owner.");
     } else {
       captureButton.textContent =
         currentIndex < tasks.length - 1 ? "Capture and next" : "Capture final photo";
@@ -477,7 +480,9 @@
       return;
     }
     if (!dropboxConnected) {
-      setMessage("Dropbox is not connected. The form owner must connect Dropbox first.");
+      setMessage(ownerMode
+        ? "Dropbox is not connected. Connect Dropbox before uploading."
+        : "This form is not ready for uploads. Please contact the form owner.");
       return;
     }
 
@@ -540,7 +545,8 @@
     if (!key) {
       dropboxConnected = false;
       dropboxText.textContent = "Dropbox: waiting for form";
-      connectDropboxButton.hidden = false;
+      connectDropboxButton.hidden = !ownerMode;
+      disconnectDropboxButton.hidden = true;
       return;
     }
 
@@ -553,13 +559,13 @@
       dropboxText.textContent = dropboxConnected
         ? "Dropbox: connected" + (status.accountEmail ? " (" + status.accountEmail + ")" : "")
         : "Dropbox: not connected";
-      connectDropboxButton.hidden = false;
+      connectDropboxButton.hidden = !ownerMode;
       connectDropboxButton.textContent = dropboxConnected ? "Reconnect Dropbox" : "Connect Dropbox";
-      disconnectDropboxButton.hidden = !dropboxConnected;
+      disconnectDropboxButton.hidden = !ownerMode || !dropboxConnected;
     } catch (error) {
       dropboxConnected = false;
       dropboxText.textContent = "Dropbox: status failed";
-      connectDropboxButton.hidden = false;
+      connectDropboxButton.hidden = !ownerMode;
       connectDropboxButton.textContent = "Connect Dropbox";
       disconnectDropboxButton.hidden = true;
     }
@@ -612,7 +618,7 @@
       });
       dropboxConnected = false;
       dropboxText.textContent = "Dropbox: not connected";
-      connectDropboxButton.hidden = false;
+      connectDropboxButton.hidden = !ownerMode;
       connectDropboxButton.textContent = "Connect Dropbox";
       disconnectDropboxButton.hidden = true;
       setMessage("Dropbox has been disconnected for this form.");
