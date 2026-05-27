@@ -24,6 +24,7 @@
   var captureButton = document.getElementById("captureButton");
   var retakeButton = document.getElementById("retakeButton");
   var connectDropboxButton = document.getElementById("connectDropboxButton");
+  var disconnectDropboxButton = document.getElementById("disconnectDropboxButton");
   var stepProgress = document.getElementById("stepProgress");
   var stepTitle = document.getElementById("stepTitle");
   var taskHint = document.getElementById("taskHint");
@@ -38,6 +39,9 @@
   var formId = params.get("formId") || "";
   var formFolder = params.get("folder") || "";
   var installKey = params.get("installKey") || "";
+  var customer = params.get("customer") || params.get("name") || "";
+  var email = params.get("email") || "";
+  var submissionId = params.get("submission") || params.get("submissionId") || "";
   var dropboxConnected = false;
   var captureToken = "jf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   var isUploading = false;
@@ -118,6 +122,13 @@
       captureToken: captureToken,
       total: photos.length,
       completedAt: new Date().toISOString(),
+      dropboxFolderUrl: photos[0] && photos[0].upload && photos[0].upload.folderUrl,
+      dropboxFolderPath: photos[0] && photos[0].upload && photos[0].upload.folderKey,
+      submitter: {
+        name: customer,
+        email: email,
+        submissionId: submissionId
+      },
       photos: photos.map(function (item, index) {
         return {
           index: index + 1,
@@ -126,6 +137,8 @@
           url: item.upload.url,
           storageKey: item.upload.key,
           metadataKey: item.upload.metadataKey,
+          folderUrl: item.upload.folderUrl,
+          folderKey: item.upload.folderKey,
           sha256: item.upload.sha256,
           bytes: item.upload.bytes,
           contentType: item.upload.contentType,
@@ -371,7 +384,7 @@
       body: JSON.stringify({
         captureToken: captureToken,
         formId: formId,
-        folder: formFolder,
+        folder: submissionFolder(),
         installKey: resolveInstallKey(),
         index: metadata.index,
         photoKey: metadata.key,
@@ -407,6 +420,11 @@
       label: task.label,
       time: getTimeSnapshot(),
       location: locationSnapshot,
+      submitter: {
+        name: customer,
+        email: email,
+        submissionId: submissionId
+      },
       browserUserAgent: navigator.userAgent,
       proofMode: "camera-only-9-photos-linked",
       fileUploadDisabled: true
@@ -437,6 +455,20 @@
     }
 
     render();
+  }
+
+  function safePathPart(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[^a-zA-Z0-9._@-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+  }
+
+  function submissionFolder() {
+    var base = formFolder || (formId ? "form-" + formId : "default");
+    var who = safePathPart(email || customer || submissionId);
+    return who ? base + "/" + who : base;
   }
 
   async function uploadAllPhotos() {
@@ -523,11 +555,13 @@
         : "Dropbox: not connected";
       connectDropboxButton.hidden = false;
       connectDropboxButton.textContent = dropboxConnected ? "Reconnect Dropbox" : "Connect Dropbox";
+      disconnectDropboxButton.hidden = !dropboxConnected;
     } catch (error) {
       dropboxConnected = false;
       dropboxText.textContent = "Dropbox: status failed";
       connectDropboxButton.hidden = false;
       connectDropboxButton.textContent = "Connect Dropbox";
+      disconnectDropboxButton.hidden = true;
     }
 
     render();
@@ -563,6 +597,31 @@
     }, 1200);
   }
 
+  async function disconnectDropbox() {
+    var key = resolveInstallKey();
+    if (!key) return;
+
+    disconnectDropboxButton.disabled = true;
+    try {
+      await fetch("/api/dropbox/disconnect", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json"
+        },
+        body: JSON.stringify({ installKey: key })
+      });
+      dropboxConnected = false;
+      dropboxText.textContent = "Dropbox: not connected";
+      connectDropboxButton.hidden = false;
+      connectDropboxButton.textContent = "Connect Dropbox";
+      disconnectDropboxButton.hidden = true;
+      setMessage("Dropbox has been disconnected for this form.");
+      render();
+    } finally {
+      disconnectDropboxButton.disabled = false;
+    }
+  }
+
   startCameraButton.addEventListener("click", startCamera);
   captureButton.addEventListener("click", function () {
     if (allCaptured() && !isComplete()) {
@@ -573,6 +632,7 @@
   });
   retakeButton.addEventListener("click", retakeCurrent);
   connectDropboxButton.addEventListener("click", connectDropbox);
+  disconnectDropboxButton.addEventListener("click", disconnectDropbox);
   window.addEventListener("pagehide", stopCamera);
   window.addEventListener("resize", resizeWidget);
 

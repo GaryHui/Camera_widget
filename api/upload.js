@@ -90,6 +90,7 @@ async function uploadToDropbox({ req, body, image, imageKey, metadataKey, metada
   const baseFolder = "/" + String(config.baseFolder || "/JotformProof").replace(/^\/+|\/+$/g, "");
   const imagePath = `${baseFolder}/${imageKey}`;
   const metadataPath = `${baseFolder}/${metadataKey}`;
+  const submissionFolderPath = imagePath.slice(0, imagePath.lastIndexOf("/"));
   const folderPath = imagePath.slice(0, imagePath.lastIndexOf("/"));
 
   await ensureDropboxFolder(accessToken, folderPath);
@@ -102,6 +103,7 @@ async function uploadToDropbox({ req, body, image, imageKey, metadataKey, metada
   );
 
   const url = await getDropboxSharedUrl(accessToken, imagePath);
+  const folderUrl = await getDropboxSharedUrl(accessToken, submissionFolderPath);
 
   return {
     ok: true,
@@ -112,6 +114,8 @@ async function uploadToDropbox({ req, body, image, imageKey, metadataKey, metada
     url,
     key: imagePath,
     metadataKey: metadataPath,
+    folderKey: submissionFolderPath,
+    folderUrl,
     sha256,
     bytes: image.buffer.length,
     contentType: image.contentType,
@@ -188,11 +192,13 @@ export default async function handler(req, res) {
     const baseKey = `jotform-proof/${folder}/${token}/${String(index).padStart(2, "0")}-${photoKey}`;
     const imageKey = `${baseKey}.${ext}`;
     const metadataKey = `${baseKey}.json`;
+    const folderKey = `jotform-proof/${folder}/${token}`;
     const metadata = {
       ...(body.metadata && typeof body.metadata === "object" ? body.metadata : {}),
       storage: {
         imageKey,
         metadataKey,
+        folderKey,
         sha256,
         bytes: image.buffer.length,
         contentType: image.contentType,

@@ -131,6 +131,35 @@ In Jotform:
 
 After Dropbox is connected for that form, customers can fill out the form without seeing Dropbox login.
 
+## Optional folder grouping
+
+You can pass extra query parameters to make Dropbox folders easier to identify:
+
+```text
+https://jotform-proof-camera-standalone.vercel.app/index.html?installKey=vehicle-inspection&folder=vehicle-inspection&customer=John-Smith&email=john@example.com
+```
+
+Dropbox folder example:
+
+```text
+/JotformProof/jotform-proof/vehicle-inspection/john@example.com/jf-example/
+```
+
+The Jotform submission value includes:
+
+```json
+{
+  "dropboxFolderUrl": "https://dl.dropboxusercontent.com/...",
+  "dropboxFolderPath": "/JotformProof/...",
+  "submitter": {
+    "name": "John-Smith",
+    "email": "john@example.com"
+  }
+}
+```
+
+The form owner can also use `Disconnect` in the widget to remove the Dropbox connection for that `installKey`.
+
 ## Security note
 
 This improves evidence quality but is not absolute proof. Users may still spoof location, device time, or camera input. For higher proof strength, store server receipt time, verify hashes, restrict bucket writes to the serverless API only, and optionally add a one-time challenge code.
