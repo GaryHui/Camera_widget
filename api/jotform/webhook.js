@@ -318,6 +318,18 @@ async function createProofPhotosPdf({ proof, formId, submissionId }) {
   return Buffer.from(await pdfDoc.save());
 }
 
+async function mergePdfBuffers(buffers) {
+  const output = await PDFDocument.create();
+
+  for (const buffer of buffers.filter(Boolean)) {
+    const source = await PDFDocument.load(buffer);
+    const pages = await output.copyPages(source, source.getPageIndices());
+    pages.forEach((page) => output.addPage(page));
+  }
+
+  return Buffer.from(await output.save());
+}
+
 async function downloadJotformPdf({ formId, submissionId }) {
   const url = new URL("https://www.jotform.com/server.php");
   url.searchParams.set("action", "getSubmissionPDF");
@@ -453,14 +465,17 @@ export default async function handler(req, res) {
     const accessToken = await refreshDropboxAccessToken(config, connection.refreshToken);
     const pdfPath = `${folderPath}/jotform-submission-${submissionId}.pdf`;
     const proofPhotosPdfPath = `${folderPath}/proof-photos-${submissionId}.pdf`;
+    const combinedPdfPath = `${folderPath}/jotform-submission-with-photos-${submissionId}.pdf`;
     const auditPath = `${folderPath}/jotform-submission-${submissionId}-webhook.json`;
 
     await ensureDropboxFolder(accessToken, folderPath);
     let pdfUrl = null;
+    let combinedPdfUrl = null;
+    let jotformPdf = null;
     let jotformPdfUploaded = false;
     try {
-      const pdf = await downloadJotformPdf({ formId, submissionId });
-      await uploadDropboxFile(accessToken, pdfPath, pdf, "application/pdf");
+      jotformPdf = await downloadJotformPdf({ formId, submissionId });
+      await uploadDropboxFile(accessToken, pdfPath, jotformPdf, "application/pdf");
       pdfUrl = await getDropboxSharedUrl(accessToken, pdfPath);
       jotformPdfUploaded = true;
     } catch (error) {
@@ -471,6 +486,11 @@ export default async function handler(req, res) {
 
     const proofPhotosPdf = await createProofPhotosPdf({ proof, formId, submissionId });
     await uploadDropboxFile(accessToken, proofPhotosPdfPath, proofPhotosPdf, "application/pdf");
+    if (jotformPdf) {
+      const combinedPdf = await mergePdfBuffers([jotformPdf, proofPhotosPdf]);
+      await uploadDropboxFile(accessToken, combinedPdfPath, combinedPdf, "application/pdf");
+      combinedPdfUrl = await getDropboxSharedUrl(accessToken, combinedPdfPath);
+    }
     await uploadDropboxFile(
       accessToken,
       auditPath,
@@ -481,6 +501,7 @@ export default async function handler(req, res) {
         dropboxFolderPath: folderPath,
         jotformPdfPath: jotformPdfUploaded ? pdfPath : "",
         proofPhotosPdfPath,
+        combinedPdfPath: jotformPdfUploaded ? combinedPdfPath : "",
         uploadedAt: new Date().toISOString()
       }, null, 2)),
       "application/json"
@@ -512,9 +533,11 @@ export default async function handler(req, res) {
       captureToken: proof.captureToken,
       pdfUrl,
       proofPhotosPdfUrl,
+      combinedPdfUrl,
       folderUrl,
       pdfPath,
       proofPhotosPdfPath,
+      combinedPdfPath: jotformPdfUploaded ? combinedPdfPath : "",
       jotformPdfUploaded,
       jotformUpdated: Boolean(jotformUpdate)
     });

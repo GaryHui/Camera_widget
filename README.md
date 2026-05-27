@@ -208,10 +208,11 @@ After submission, the webhook uploads:
 ```text
 /JotformProof/.../jotform-submission-{submissionID}.pdf
 /JotformProof/.../proof-photos-{submissionID}.pdf
+/JotformProof/.../jotform-submission-with-photos-{submissionID}.pdf
 /JotformProof/.../jotform-submission-{submissionID}-webhook.json
 ```
 
-The `proof-photos` PDF includes the 9 uploaded photos plus their labels, capture time, GPS, Dropbox URL, and SHA-256 hash. The widget value starts with the Dropbox folder URL, so the form owner can click that link from the Jotform submission table and see the 9 photos plus the PDFs in one folder.
+The `proof-photos` PDF includes the 9 uploaded photos plus their labels, capture time, GPS, Dropbox URL, and SHA-256 hash. The `jotform-submission-with-photos` PDF combines the original Jotform submission PDF first, then appends the 9-photo report. The widget value starts with the Dropbox folder URL, so the form owner can click that link from the Jotform submission table and see the 9 photos plus the PDFs in one folder.
 
 If you want a separate native Jotform field/column to be filled automatically after submit, add a normal Short Text field to the form and label it exactly:
 
@@ -241,7 +242,7 @@ The widget uploads photos before the final Jotform submit, so every upload batch
 
 Recommended setup:
 
-1. Add this widget as a real Jotform widget field, not only a plain iframe, so `JFCustomWidget.sendSubmit` can save the value.
+1. Add this widget as a real Jotform Custom Widget field, not a plain iframe/embed. Only a real Custom Widget can use `JFCustomWidget.sendSubmit({ valid: false })` to block Jotform submit while photos are incomplete.
 2. Name and email are optional for upload, but useful for clearer Dropbox folder names and metadata. Pass the Jotform field unique names or field IDs in the widget URL if you know them:
 
 ```text
