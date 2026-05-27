@@ -179,6 +179,9 @@ export default async function handler(req, res) {
     const token = safePart(body.captureToken, "capture");
     const folder = safePart(body.folder || (body.formId ? "form-" + body.formId : "default"), "default");
     const photoKey = safePart(body.photoKey, "photo");
+    const submitterName = safePart(body.submitterName, "");
+    const submitterEmail = safePart(body.submitterEmail, "");
+    const submitterPrefix = [submitterName, submitterEmail].filter(Boolean).join("-");
     const index = safePart(body.index, "0");
     const image = parseBase64Image(body.imageDataUrl);
 
@@ -189,7 +192,8 @@ export default async function handler(req, res) {
 
     const sha256 = crypto.createHash("sha256").update(image.buffer).digest("hex");
     const ext = image.contentType === "image/png" ? "png" : image.contentType === "image/webp" ? "webp" : "jpg";
-    const baseKey = `jotform-proof/${folder}/${token}/${String(index).padStart(2, "0")}-${photoKey}`;
+    const fileBase = [String(index).padStart(2, "0"), submitterPrefix, photoKey].filter(Boolean).join("-");
+    const baseKey = `jotform-proof/${folder}/${token}/${fileBase}`;
     const imageKey = `${baseKey}.${ext}`;
     const metadataKey = `${baseKey}.json`;
     const folderKey = `jotform-proof/${folder}/${token}`;

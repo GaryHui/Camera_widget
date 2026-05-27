@@ -363,13 +363,17 @@
       captureButton.textContent = "Upload all photos";
       captureButton.disabled = !dropboxConnected || !submitterReady();
       retakeButton.disabled = !photos[currentIndex].imageDataUrl;
-      setMessage(dropboxConnected
-        ? submitterReady()
-          ? "All 9 photos are captured. Tap Upload all photos to send them to Dropbox."
-          : "Enter name and a valid email before uploading photos."
-        : ownerMode
-          ? "All 9 photos are captured. Connect Dropbox before uploading."
-          : "This form is not ready for uploads. Please contact the form owner.");
+      if (!photos[currentIndex].imageDataUrl) {
+        setMessage("Retake the selected photo, then upload all photos.");
+      } else {
+        setMessage(dropboxConnected
+          ? submitterReady()
+            ? "All 9 photos are captured. Tap Upload all photos to send them to Dropbox."
+            : "Enter name and a valid email before uploading photos."
+          : ownerMode
+            ? "All 9 photos are captured. Connect Dropbox before uploading."
+            : "This form is not ready for uploads. Please contact the form owner.");
+      }
     } else {
       captureButton.textContent =
         currentIndex < tasks.length - 1 ? "Capture and next" : "Capture final photo";
@@ -450,14 +454,20 @@
     }
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      var constraints = {
         audio: false,
         video: {
           facingMode: { ideal: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 960 }
         }
-      });
+      };
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (_) {
+        constraints.video.facingMode = "environment";
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      }
 
       video.srcObject = stream;
       video.hidden = false;
@@ -515,6 +525,7 @@
   }
 
   async function uploadPhoto(imageDataUrl, metadata) {
+    var submitter = currentSubmitter();
     var response = await fetch("/api/upload", {
       method: "POST",
       headers: {
@@ -527,6 +538,8 @@
         installKey: resolveInstallKey(),
         index: metadata.index,
         photoKey: metadata.key,
+        submitterName: submitter.name,
+        submitterEmail: submitter.email,
         imageDataUrl: imageDataUrl,
         metadata: metadata
       })
