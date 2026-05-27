@@ -62,6 +62,7 @@
   var captureToken = "jf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   var submissionStamp = folderTimestamp(new Date());
   var isUploading = false;
+  var proofPdf = null;
   var photos = tasks.map(function (task) {
     return {
       key: task.key,
@@ -274,6 +275,7 @@
       completedAt: new Date().toISOString(),
       dropboxFolderUrl: photos[0] && photos[0].upload && photos[0].upload.folderUrl,
       dropboxFolderPath: photos[0] && photos[0].upload && photos[0].upload.folderKey,
+      proofPdf: proofPdf,
       submitter: {
         name: currentSubmitter().name,
         email: currentSubmitter().email,
@@ -313,6 +315,9 @@
     data.photos.forEach(function (item) {
       lines.push("Photo " + item.index + " - " + item.label + ": " + item.url);
     });
+    if (data.proofPdf && data.proofPdf.pdfUrl) {
+      lines.push("Proof photos PDF: " + data.proofPdf.pdfUrl);
+    }
 
     lines.push("Proof camera data: " + JSON.stringify(data));
     return lines.join("\n");
@@ -591,6 +596,29 @@
     return payload;
   }
 
+  async function createProofPdf() {
+    var response = await fetch("/api/proof-pdf", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        installKey: resolveInstallKey(),
+        formId: formId,
+        proof: buildValueData()
+      })
+    });
+    var payload = await response.json().catch(function () {
+      return {};
+    });
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(payload.detail || payload.error || "Proof PDF failed");
+    }
+
+    return payload;
+  }
+
   function capturePhoto() {
     if (!stream || !video.videoWidth || !video.videoHeight) {
       setMessage("Camera is not ready yet.");
@@ -629,6 +657,7 @@
     photos[currentIndex].metadata = meta;
     photos[currentIndex].upload = null;
     photos[currentIndex].error = "";
+    proofPdf = null;
     preview.src = imageDataUrl;
     preview.hidden = false;
     video.hidden = true;
@@ -681,6 +710,7 @@
     }
 
     isUploading = true;
+    proofPdf = null;
     setUploadProgress(uploadedCount(), photos.length, "Preparing uploads");
     render();
 
@@ -697,9 +727,16 @@
         setUploadProgress(uploadedCount(), photos.length, "Uploaded " + uploadedCount() + "/" + photos.length);
       }
 
+      setUploadProgress(photos.length, photos.length, "Generating proof PDF");
+      setMessage("All 9 photos are uploaded. Generating proof PDF...");
+      try {
+        proofPdf = await createProofPdf();
+        setUploadProgress(photos.length, photos.length, "Upload complete");
+        setMessage("All 9 photos and the proof PDF are uploaded. Submit the Jotform form to attach these links to this submission.");
+      } catch (pdfError) {
+        setMessage("Photos uploaded, but proof PDF failed: " + (pdfError.message || "Proof PDF failed"));
+      }
       sendCurrentValue();
-      setUploadProgress(photos.length, photos.length, "Upload complete");
-      setMessage("All 9 photos are uploaded. Submit the Jotform form to attach these links to this submission.");
     } catch (error) {
       photos[currentIndex].upload = null;
       photos[currentIndex].error = error.message || "Upload failed";
@@ -716,6 +753,7 @@
     photos[currentIndex].metadata = null;
     photos[currentIndex].upload = null;
     photos[currentIndex].error = "";
+    proofPdf = null;
     showCurrentLiveCamera();
     sendCurrentValue();
     render();
