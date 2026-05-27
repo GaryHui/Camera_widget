@@ -115,12 +115,51 @@ async function downloadJotformPdf({ formId, submissionId }) {
   return buffer;
 }
 
-async function updateJotformSubmissionLink({ submissionId, field, folderUrl }) {
-  if (!process.env.JOTFORM_API_KEY || !field || !folderUrl) return null;
+async function findJotformFieldByLabel(formId, labels) {
+  if (!process.env.JOTFORM_API_KEY || !formId) return "";
+
+  const wanted = labels.map((label) => String(label).toLowerCase());
+  const url = new URL(`https://api.jotform.com/form/${encodeURIComponent(formId)}/questions`);
+  url.searchParams.set("apiKey", process.env.JOTFORM_API_KEY);
+
+  const response = await fetch(url);
+  const payload = await response.json().catch(() => ({}));
+  const questions = payload.content || {};
+
+  if (!response.ok || payload.responseCode >= 400) {
+    const error = new Error(payload.message || "Could not read Jotform fields.");
+    error.statusCode = 502;
+    throw error;
+  }
+
+  for (const [qid, question] of Object.entries(questions)) {
+    const values = [
+      question.text,
+      question.name,
+      question.label,
+      question.title
+    ].filter(Boolean).map((value) => String(value).toLowerCase());
+
+    if (values.some((value) => wanted.includes(value))) return qid;
+  }
+
+  return "";
+}
+
+async function updateJotformSubmissionLink({ formId, submissionId, field, folderUrl }) {
+  if (!process.env.JOTFORM_API_KEY || !folderUrl) return null;
+
+  const resolvedField = field || await findJotformFieldByLabel(formId, [
+    "Dropbox Link",
+    "Dropbox",
+    "dropboxLink",
+    "dropbox_link"
+  ]);
+  if (!resolvedField) return null;
 
   const params = new URLSearchParams();
   params.set("apiKey", process.env.JOTFORM_API_KEY);
-  params.set(`submission[${field}]`, folderUrl);
+  params.set(`submission[${resolvedField}]`, folderUrl);
 
   const response = await fetch(`https://api.jotform.com/submission/${encodeURIComponent(submissionId)}`, {
     method: "POST",
@@ -137,7 +176,10 @@ async function updateJotformSubmissionLink({ submissionId, field, folderUrl }) {
     throw error;
   }
 
-  return payload;
+  return {
+    ...payload,
+    field: resolvedField
+  };
 }
 
 export default async function handler(req, res) {
@@ -214,6 +256,7 @@ export default async function handler(req, res) {
       });
     }
     const jotformUpdate = await updateJotformSubmissionLink({
+      formId,
       submissionId,
       field: proof.dropboxField || process.env.JOTFORM_DROPBOX_FIELD || "",
       folderUrl

@@ -212,13 +212,21 @@ After submission, the webhook uploads:
 
 The widget value starts with the Dropbox folder URL, so the form owner can click that link from the Jotform submission table and see the 9 photos plus the submitted PDF in one folder.
 
-If you want a separate native Jotform field/column such as `Dropbox` to be filled automatically after submit, set `JOTFORM_API_KEY` in Vercel and pass the target field key in the widget URL:
+If you want a separate native Jotform field/column to be filled automatically after submit, add a normal Short Text field to the form and label it exactly:
+
+```text
+Dropbox Link
+```
+
+Then set `JOTFORM_API_KEY` in Vercel. The webhook will automatically find the `Dropbox Link` field and update that submission with the Dropbox folder URL. You do not need to manually find the field ID.
+
+If you prefer to configure the field explicitly, pass a field ID in the widget URL:
 
 ```text
 https://jotform-proof-camera-standalone.vercel.app/index.html?installKey=vehicle-inspection&folder=vehicle-inspection&dropboxField=12
 ```
 
-You can also set one default field for all forms:
+or set one default field for all forms:
 
 ```text
 JOTFORM_DROPBOX_FIELD=12
