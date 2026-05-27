@@ -52,6 +52,7 @@
   var emailFieldId = params.get("emailFieldId") || "";
   var nameSelector = params.get("nameSelector") || "";
   var emailSelector = params.get("emailSelector") || "";
+  var dropboxField = params.get("dropboxField") || params.get("dropboxFieldId") || "";
   var jotformSubmitter = {
     name: customer,
     email: email
@@ -268,6 +269,7 @@
       captureToken: captureToken,
       installKey: resolveInstallKey(),
       formId: formId,
+      dropboxField: dropboxField,
       total: photos.length,
       completedAt: new Date().toISOString(),
       dropboxFolderUrl: photos[0] && photos[0].upload && photos[0].upload.folderUrl,
@@ -302,6 +304,7 @@
     if (!data) return "";
 
     var lines = [
+      data.dropboxFolderUrl || "",
       "Dropbox folder: " + (data.dropboxFolderUrl || ""),
       "Submitter: " + [data.submitter.name, data.submitter.email].filter(Boolean).join(" / "),
       "Capture token: " + data.captureToken

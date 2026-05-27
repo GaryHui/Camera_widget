@@ -103,7 +103,7 @@ async function uploadToDropbox({ req, body, image, imageKey, metadataKey, metada
   );
 
   const url = await getDropboxSharedUrl(accessToken, imagePath);
-  const folderUrl = await getDropboxSharedUrl(accessToken, submissionFolderPath);
+  const folderUrl = await getDropboxSharedUrl(accessToken, submissionFolderPath, { raw: false });
 
   return {
     ok: true,

@@ -49,7 +49,8 @@ Each photo is watermarked with:
 Jotform receives readable text with direct Dropbox links first, followed by machine-readable JSON. It does not contain base64 image data.
 
 ```text
-Dropbox folder: https://dl.dropboxusercontent.com/...
+https://www.dropbox.com/...
+Dropbox folder: https://www.dropbox.com/...
 Submitter: John Smith / john@example.com
 Capture token: jf-example
 Photo 1 - Exterior front-left 45 degrees: https://dl.dropboxusercontent.com/...
@@ -174,7 +175,7 @@ The Jotform submission value includes:
 
 ```json
 {
-  "dropboxFolderUrl": "https://dl.dropboxusercontent.com/...",
+  "dropboxFolderUrl": "https://www.dropbox.com/...",
   "dropboxFolderPath": "/JotformProof/...",
   "submitter": {
     "name": "John-Smith",
@@ -209,7 +210,21 @@ After submission, the webhook uploads:
 /JotformProof/.../jotform-submission-{submissionID}-webhook.json
 ```
 
-The widget value already contains the Dropbox folder link, so the form owner can click that link from the Jotform submission table and see the 9 photos plus the submitted PDF in one folder.
+The widget value starts with the Dropbox folder URL, so the form owner can click that link from the Jotform submission table and see the 9 photos plus the submitted PDF in one folder.
+
+If you want a separate native Jotform field/column such as `Dropbox` to be filled automatically after submit, set `JOTFORM_API_KEY` in Vercel and pass the target field key in the widget URL:
+
+```text
+https://jotform-proof-camera-standalone.vercel.app/index.html?installKey=vehicle-inspection&folder=vehicle-inspection&dropboxField=12
+```
+
+You can also set one default field for all forms:
+
+```text
+JOTFORM_DROPBOX_FIELD=12
+```
+
+When the webhook runs, it updates that submission field with the Dropbox folder URL.
 
 ## Matching photos to Jotform submissions
 
@@ -265,7 +280,7 @@ nameSelector=%23first_3&emailSelector=%23input_4
 ```json
 {
   "captureToken": "jf-example",
-  "dropboxFolderUrl": "https://dl.dropboxusercontent.com/...",
+  "dropboxFolderUrl": "https://www.dropbox.com/...",
   "dropboxFolderPath": "/JotformProof/...",
   "submitter": {
     "name": "John Smith",

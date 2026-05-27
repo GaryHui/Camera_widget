@@ -110,6 +110,31 @@ async function downloadJotformPdf({ formId, submissionId }) {
   return buffer;
 }
 
+async function updateJotformSubmissionLink({ submissionId, field, folderUrl }) {
+  if (!process.env.JOTFORM_API_KEY || !field || !folderUrl) return null;
+
+  const params = new URLSearchParams();
+  params.set("apiKey", process.env.JOTFORM_API_KEY);
+  params.set(`submission[${field}]`, folderUrl);
+
+  const response = await fetch(`https://api.jotform.com/submission/${encodeURIComponent(submissionId)}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    body: params.toString()
+  });
+  const payload = await response.json().catch(() => ({}));
+
+  if (!response.ok || payload.responseCode >= 400) {
+    const error = new Error(payload.message || "Could not update Jotform Dropbox link field.");
+    error.statusCode = 502;
+    throw error;
+  }
+
+  return payload;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -173,7 +198,12 @@ export default async function handler(req, res) {
     );
 
     const pdfUrl = await getDropboxSharedUrl(accessToken, pdfPath);
-    const folderUrl = await getDropboxSharedUrl(accessToken, folderPath);
+    const folderUrl = await getDropboxSharedUrl(accessToken, folderPath, { raw: false });
+    const jotformUpdate = await updateJotformSubmissionLink({
+      submissionId,
+      field: proof.dropboxField || process.env.JOTFORM_DROPBOX_FIELD || "",
+      folderUrl
+    });
 
     res.status(200).json({
       ok: true,
@@ -183,7 +213,8 @@ export default async function handler(req, res) {
       captureToken: proof.captureToken,
       pdfUrl,
       folderUrl,
-      pdfPath
+      pdfPath,
+      jotformUpdated: Boolean(jotformUpdate)
     });
   } catch (error) {
     const status = error.statusCode || 500;
