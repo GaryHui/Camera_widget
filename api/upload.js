@@ -1,5 +1,13 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import crypto from "node:crypto";
+import {
+  ensureDropboxFolder,
+  getDropboxAppConfig,
+  getDropboxSharedUrl,
+  refreshDropboxAccessToken,
+  uploadDropboxFile
+} from "../lib/dropbox.js";
+import { getDropboxConnection, safeInstallKey } from "../lib/store.js";
 
 const s3RequiredEnv = [
   "S3_BUCKET",
@@ -7,9 +15,9 @@ const s3RequiredEnv = [
   "S3_SECRET_ACCESS_KEY"
 ];
 
-function wantsDropbox() {
+function wantsDropbox(body) {
   return String(process.env.STORAGE_PROVIDER || "").toLowerCase() === "dropbox" ||
-    Boolean(process.env.DROPBOX_ACCESS_TOKEN || process.env.DROPBOX_REFRESH_TOKEN);
+    Boolean(body.installKey || body.formId);
 }
 
 function getS3Config() {
@@ -27,29 +35,6 @@ function getS3Config() {
     accessKeyId: process.env.S3_ACCESS_KEY_ID,
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
     publicBaseUrl: process.env.S3_PUBLIC_BASE_URL || ""
-  };
-}
-
-function getDropboxConfig() {
-  if (process.env.DROPBOX_ACCESS_TOKEN) {
-    return {
-      accessToken: process.env.DROPBOX_ACCESS_TOKEN,
-      baseFolder: process.env.DROPBOX_BASE_FOLDER || "/JotformProof"
-    };
-  }
-
-  const missing = ["DROPBOX_REFRESH_TOKEN", "DROPBOX_APP_KEY", "DROPBOX_APP_SECRET"].filter((key) => !process.env[key]);
-  if (missing.length) {
-    const error = new Error("Missing Dropbox environment variables: " + missing.join(", "));
-    error.statusCode = 500;
-    throw error;
-  }
-
-  return {
-    refreshToken: process.env.DROPBOX_REFRESH_TOKEN,
-    appKey: process.env.DROPBOX_APP_KEY,
-    appSecret: process.env.DROPBOX_APP_SECRET,
-    baseFolder: process.env.DROPBOX_BASE_FOLDER || "/JotformProof"
   };
 }
 
@@ -89,133 +74,19 @@ function publicUrl(config, key) {
   return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key.split("/").map(encodeURIComponent).join("/")}`;
 }
 
-async function getDropboxAccessToken(config) {
-  if (config.accessToken) return config.accessToken;
+async function uploadToDropbox({ req, body, image, imageKey, metadataKey, metadata, sha256 }) {
+  const installKey = safeInstallKey(body.installKey || (body.formId ? "form-" + body.formId : ""));
+  const connection = await getDropboxConnection(installKey);
 
-  const params = new URLSearchParams();
-  params.set("grant_type", "refresh_token");
-  params.set("refresh_token", config.refreshToken);
-
-  const auth = Buffer.from(config.appKey + ":" + config.appSecret).toString("base64");
-  const response = await fetch("https://api.dropboxapi.com/oauth2/token", {
-    method: "POST",
-    headers: {
-      authorization: "Basic " + auth,
-      "content-type": "application/x-www-form-urlencoded"
-    },
-    body: params.toString()
-  });
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok || !payload.access_token) {
-    const error = new Error("Dropbox token refresh failed");
-    error.statusCode = 500;
+  if (!connection) {
+    const error = new Error("Dropbox is not connected for this form.");
+    error.statusCode = 409;
+    error.code = "dropbox_not_connected";
     throw error;
   }
 
-  return payload.access_token;
-}
-
-async function dropboxJson(path, accessToken, body) {
-  const response = await fetch("https://api.dropboxapi.com/2/" + path, {
-    method: "POST",
-    headers: {
-      authorization: "Bearer " + accessToken,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(body || {})
-  });
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    const error = new Error(payload.error_summary || "Dropbox API failed");
-    error.statusCode = 500;
-    throw error;
-  }
-
-  return payload;
-}
-
-async function uploadDropboxFile(accessToken, path, buffer, contentType) {
-  const response = await fetch("https://content.dropboxapi.com/2/files/upload", {
-    method: "POST",
-    headers: {
-      authorization: "Bearer " + accessToken,
-      "content-type": "application/octet-stream",
-      "dropbox-api-arg": JSON.stringify({
-        path,
-        mode: "overwrite",
-        autorename: false,
-        mute: true
-      })
-    },
-    body: buffer
-  });
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    const error = new Error(payload.error_summary || "Dropbox upload failed");
-    error.statusCode = 500;
-    throw error;
-  }
-
-  return {
-    ...payload,
-    contentType
-  };
-}
-
-async function ensureDropboxFolder(accessToken, path) {
-  const clean = String(path || "").replace(/^\/+|\/+$/g, "");
-  if (!clean) return;
-
-  const parts = clean.split("/").filter(Boolean);
-  let current = "";
-
-  for (const part of parts) {
-    current += "/" + part;
-    try {
-      await dropboxJson("files/create_folder_v2", accessToken, {
-        path: current,
-        autorename: false
-      });
-    } catch (error) {
-      if (!String(error.message || "").includes("path/conflict/folder")) throw error;
-    }
-  }
-}
-
-async function getDropboxSharedUrl(accessToken, path) {
-  try {
-    const created = await dropboxJson("sharing/create_shared_link_with_settings", accessToken, {
-      path,
-      settings: {
-        requested_visibility: "public",
-        audience: "public",
-        access: "viewer"
-      }
-    });
-    return toRawDropboxUrl(created.url);
-  } catch (error) {
-    if (!String(error.message || "").includes("shared_link_already_exists")) throw error;
-  }
-
-  const existing = await dropboxJson("sharing/list_shared_links", accessToken, {
-    path,
-    direct_only: true
-  });
-  const link = existing.links && existing.links[0] && existing.links[0].url;
-  return link ? toRawDropboxUrl(link) : null;
-}
-
-function toRawDropboxUrl(url) {
-  if (!url) return null;
-  return String(url).replace("www.dropbox.com", "dl.dropboxusercontent.com").replace(/[?&]dl=0$/, "");
-}
-
-async function uploadToDropbox({ body, image, imageKey, metadataKey, metadata, sha256 }) {
-  const config = getDropboxConfig();
-  const accessToken = await getDropboxAccessToken(config);
+  const config = getDropboxAppConfig(req);
+  const accessToken = await refreshDropboxAccessToken(config, connection.refreshToken);
   const baseFolder = "/" + String(config.baseFolder || "/JotformProof").replace(/^\/+|\/+$/g, "");
   const imagePath = `${baseFolder}/${imageKey}`;
   const metadataPath = `${baseFolder}/${metadataKey}`;
@@ -235,6 +106,9 @@ async function uploadToDropbox({ body, image, imageKey, metadataKey, metadata, s
   return {
     ok: true,
     provider: "dropbox",
+    installKey,
+    accountId: connection.accountId,
+    accountEmail: connection.accountEmail,
     url,
     key: imagePath,
     metadataKey: metadataPath,
@@ -326,8 +200,8 @@ export default async function handler(req, res) {
       }
     };
 
-    const result = wantsDropbox()
-      ? await uploadToDropbox({ body, image, imageKey, metadataKey, metadata, sha256 })
+    const result = wantsDropbox(body)
+      ? await uploadToDropbox({ req, body, image, imageKey, metadataKey, metadata, sha256 })
       : await uploadToS3({ image, imageKey, metadataKey, metadata, sha256, photoKey, token });
 
     res.status(200).json(result);
@@ -335,6 +209,7 @@ export default async function handler(req, res) {
     const status = error.statusCode || 500;
     res.status(status).json({
       error: status >= 500 ? "Upload failed" : error.message,
+      code: error.code,
       detail: process.env.NODE_ENV === "development" ? error.message : undefined
     });
   }

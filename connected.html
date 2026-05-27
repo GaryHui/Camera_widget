@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dropbox connected</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Arial, sans-serif;
+        color: #172033;
+      }
+    </style>
+  </head>
+  <body>
+    <p>Dropbox connected. You can close this window.</p>
+    <script>
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const installKey = params.get("installKey") || "";
+        if (installKey) {
+          localStorage.setItem("dropbox-connected-" + installKey, String(Date.now()));
+        }
+      } catch (_) {}
+      setTimeout(function () {
+        window.close();
+      }, 900);
+    </script>
+  </body>
+</html>

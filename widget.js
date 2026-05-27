@@ -23,10 +23,12 @@
   var startCameraButton = document.getElementById("startCameraButton");
   var captureButton = document.getElementById("captureButton");
   var retakeButton = document.getElementById("retakeButton");
+  var connectDropboxButton = document.getElementById("connectDropboxButton");
   var stepProgress = document.getElementById("stepProgress");
   var stepTitle = document.getElementById("stepTitle");
   var taskHint = document.getElementById("taskHint");
   var thumbs = document.getElementById("thumbs");
+  var dropboxText = document.getElementById("dropboxText");
 
   var stream = null;
   var locationSnapshot = null;
@@ -35,6 +37,8 @@
   var params = new URLSearchParams(window.location.search);
   var formId = params.get("formId") || "";
   var formFolder = params.get("folder") || "";
+  var installKey = params.get("installKey") || "";
+  var dropboxConnected = false;
   var captureToken = "jf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   var isUploading = false;
   var photos = tasks.map(function (task) {
@@ -132,6 +136,13 @@
     });
   }
 
+  function resolveInstallKey() {
+    if (installKey) return installKey;
+    if (formId) return "form-" + formId;
+    if (formFolder) return "folder-" + formFolder;
+    return "";
+  }
+
   function sendCurrentValue() {
     if (!window.JFCustomWidget || !widgetReady) return;
 
@@ -202,9 +213,11 @@
       setMessage("All 9 photos are uploaded. You can submit the Jotform form.");
     } else if (allCaptured()) {
       captureButton.textContent = "Upload all photos";
-      captureButton.disabled = false;
+      captureButton.disabled = !dropboxConnected;
       retakeButton.disabled = !photos[currentIndex].imageDataUrl;
-      setMessage("All 9 photos are captured. Tap Upload all photos to send them to Dropbox.");
+      setMessage(dropboxConnected
+        ? "All 9 photos are captured. Tap Upload all photos to send them to Dropbox."
+        : "All 9 photos are captured. Connect Dropbox before uploading.");
     } else {
       captureButton.textContent =
         currentIndex < tasks.length - 1 ? "Capture and next" : "Capture final photo";
@@ -359,6 +372,7 @@
         captureToken: captureToken,
         formId: formId,
         folder: formFolder,
+        installKey: resolveInstallKey(),
         index: metadata.index,
         photoKey: metadata.key,
         imageDataUrl: imageDataUrl,
@@ -430,6 +444,10 @@
       setMessage("Please capture all 9 photos before uploading.");
       return;
     }
+    if (!dropboxConnected) {
+      setMessage("Dropbox is not connected. The form owner must connect Dropbox first.");
+      return;
+    }
 
     isUploading = true;
     render();
@@ -485,6 +503,64 @@
     });
   }
 
+  async function checkDropboxStatus() {
+    var key = resolveInstallKey();
+    if (!key) {
+      dropboxConnected = false;
+      dropboxText.textContent = "Dropbox: waiting for form";
+      connectDropboxButton.hidden = false;
+      return;
+    }
+
+    try {
+      var response = await fetch("/api/dropbox/status?installKey=" + encodeURIComponent(key));
+      var status = await response.json().catch(function () {
+        return {};
+      });
+      dropboxConnected = Boolean(response.ok && status.connected);
+      dropboxText.textContent = dropboxConnected
+        ? "Dropbox: connected" + (status.accountEmail ? " (" + status.accountEmail + ")" : "")
+        : "Dropbox: not connected";
+      connectDropboxButton.hidden = dropboxConnected;
+    } catch (error) {
+      dropboxConnected = false;
+      dropboxText.textContent = "Dropbox: status failed";
+      connectDropboxButton.hidden = false;
+    }
+
+    render();
+  }
+
+  function connectDropbox() {
+    var key = resolveInstallKey();
+    if (!key) {
+      setMessage("Open this widget inside a Jotform form first, or add ?installKey=your-id to the widget URL.");
+      return;
+    }
+
+    var returnTo = "/connected.html?installKey=" + encodeURIComponent(key);
+    var popup = window.open(
+      "/api/dropbox/connect?installKey=" +
+      encodeURIComponent(key) +
+      "&returnTo=" +
+      encodeURIComponent(returnTo),
+      "connect-dropbox",
+      "width=720,height=760"
+    );
+
+    if (!popup) {
+      setMessage("Popup blocked. Please allow popups and try Connect Dropbox again.");
+      return;
+    }
+
+    var timer = setInterval(function () {
+      if (popup.closed) {
+        clearInterval(timer);
+        checkDropboxStatus();
+      }
+    }, 1200);
+  }
+
   startCameraButton.addEventListener("click", startCamera);
   captureButton.addEventListener("click", function () {
     if (allCaptured() && !isComplete()) {
@@ -494,6 +570,7 @@
     }
   });
   retakeButton.addEventListener("click", retakeCurrent);
+  connectDropboxButton.addEventListener("click", connectDropbox);
   window.addEventListener("pagehide", stopCamera);
   window.addEventListener("resize", resizeWidget);
 
@@ -505,6 +582,8 @@
       widgetReady = true;
       formId = formId || (data && (data.formID || data.formId || data.form_id)) || "";
       formFolder = formFolder || (formId ? "form-" + formId : "default");
+      installKey = installKey || (formId ? "form-" + formId : "");
+      checkDropboxStatus();
       sendCurrentValue();
       resizeWidget();
     });
@@ -513,5 +592,6 @@
   }
 
   render();
+  checkDropboxStatus();
   resizeWidget();
 })();
