@@ -210,7 +210,9 @@ export default async function handler(req, res) {
     console.error("upload_failed", {
       status,
       code: error.code,
-      message: error.message
+      message: error.message,
+      dropboxStatus: error.dropboxStatus,
+      dropboxPayload: error.dropboxPayload
     });
     res.status(status).json({
       error: status >= 500 ? "Upload failed" : error.message,
