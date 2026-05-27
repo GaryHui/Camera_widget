@@ -780,17 +780,18 @@
     }
 
     var returnTo = "/connected.html?installKey=" + encodeURIComponent(key);
-    var popup = window.open(
-      "/api/dropbox/connect?installKey=" +
+    var connectUrl = "/api/dropbox/connect?installKey=" +
       encodeURIComponent(key) +
       "&returnTo=" +
-      encodeURIComponent(returnTo),
-      "connect-dropbox",
+      encodeURIComponent(returnTo);
+    var popup = window.open(
+      connectUrl,
+      "_blank",
       "width=720,height=760"
     );
 
     if (!popup) {
-      setMessage("Popup blocked. Please allow popups and try Connect Dropbox again.");
+      setMessage("Popup blocked. Open this link to connect Dropbox: " + window.location.origin + connectUrl);
       return;
     }
 
