@@ -186,6 +186,36 @@ button:disabled {
   margin-top: 10px;
 }
 
+.submitter-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.submitter-fields label {
+  display: grid;
+  gap: 4px;
+  color: #354155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.submitter-fields input {
+  min-height: 38px;
+  width: 100%;
+  border: 1px solid #d4dbe7;
+  border-radius: 6px;
+  padding: 0 10px;
+  color: #172033;
+  font: inherit;
+}
+
+.submitter-fields input:focus {
+  border-color: #0f62fe;
+  outline: 2px solid rgba(15, 98, 254, 0.16);
+}
+
 .meta-pill {
   min-height: 26px;
   border-radius: 999px;
@@ -211,5 +241,9 @@ button:disabled {
 
   .thumb img {
     height: 58px;
+  }
+
+  .submitter-fields {
+    grid-template-columns: 1fr;
   }
 }

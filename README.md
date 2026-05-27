@@ -39,9 +39,10 @@ Each photo is watermarked with:
 1. The customer taps `Start camera`.
 2. The customer captures each required angle in order.
 3. `Retake` only clears and retakes the currently selected angle.
-4. After all 9 photos are captured, the main button changes to `Upload all photos`.
-5. The customer taps `Upload all photos`; the widget uploads the photos to the connected Dropbox and sends only links, metadata, and hashes to Jotform.
-6. The Jotform form can be submitted after upload is complete.
+4. The customer enters name and email.
+5. After all 9 photos are captured, the main button changes to `Upload all photos`.
+6. The customer taps `Upload all photos`; the widget uploads the photos to the connected Dropbox and sends only links, metadata, and hashes to Jotform.
+7. The Jotform form can be submitted after upload is complete.
 
 ## Jotform value
 
@@ -167,7 +168,7 @@ The widget uploads photos before the final Jotform submit, so every upload batch
 Recommended setup:
 
 1. Add this widget as a real Jotform widget field, not only a plain iframe, so `JFCustomWidget.sendSubmit` can save the value.
-2. Use URL parameters or Jotform prefill values to pass submitter information:
+2. The widget requires the customer to enter name and a valid email before upload. You can also prefill them with URL parameters:
 
 ```text
 https://jotform-proof-camera-standalone.vercel.app/index.html?installKey=vehicle-inspection&folder=vehicle-inspection&customer={customerName}&email={customerEmail}

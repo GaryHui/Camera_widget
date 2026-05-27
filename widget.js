@@ -30,6 +30,8 @@
   var taskHint = document.getElementById("taskHint");
   var thumbs = document.getElementById("thumbs");
   var dropboxText = document.getElementById("dropboxText");
+  var customerNameInput = document.getElementById("customerNameInput");
+  var customerEmailInput = document.getElementById("customerEmailInput");
 
   var stream = null;
   var locationSnapshot = null;
@@ -95,6 +97,23 @@
     timeText.textContent = "Time: " + getTimeSnapshot().local;
   }
 
+  function currentSubmitter() {
+    return {
+      name: customerNameInput.value.trim(),
+      email: customerEmailInput.value.trim(),
+      submissionId: submissionId
+    };
+  }
+
+  function validEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || "").trim());
+  }
+
+  function submitterReady() {
+    var submitter = currentSubmitter();
+    return Boolean(submitter.name && validEmail(submitter.email));
+  }
+
   function uploadedCount() {
     return photos.filter(function (item) {
       return Boolean(item.upload && (item.upload.url || item.upload.key) && item.upload.sha256);
@@ -126,8 +145,8 @@
       dropboxFolderUrl: photos[0] && photos[0].upload && photos[0].upload.folderUrl,
       dropboxFolderPath: photos[0] && photos[0].upload && photos[0].upload.folderKey,
       submitter: {
-        name: customer,
-        email: email,
+        name: currentSubmitter().name,
+        email: currentSubmitter().email,
         submissionId: submissionId
       },
       photos: photos.map(function (item, index) {
@@ -228,10 +247,12 @@
       setMessage("All 9 photos are uploaded. Submit the Jotform form to attach these links to this submission.");
     } else if (allCaptured()) {
       captureButton.textContent = "Upload all photos";
-      captureButton.disabled = !dropboxConnected;
+      captureButton.disabled = !dropboxConnected || !submitterReady();
       retakeButton.disabled = !photos[currentIndex].imageDataUrl;
       setMessage(dropboxConnected
-        ? "All 9 photos are captured. Tap Upload all photos to send them to Dropbox."
+        ? submitterReady()
+          ? "All 9 photos are captured. Tap Upload all photos to send them to Dropbox."
+          : "Enter name and a valid email before uploading photos."
         : ownerMode
           ? "All 9 photos are captured. Connect Dropbox before uploading."
           : "This form is not ready for uploads. Please contact the form owner.");
@@ -425,8 +446,8 @@
       time: getTimeSnapshot(),
       location: locationSnapshot,
       submitter: {
-        name: customer,
-        email: email,
+        name: currentSubmitter().name,
+        email: currentSubmitter().email,
         submissionId: submissionId
       },
       browserUserAgent: navigator.userAgent,
@@ -471,7 +492,8 @@
 
   function submissionFolder() {
     var base = formFolder || (formId ? "form-" + formId : "default");
-    var who = safePathPart(email || customer || submissionId);
+    var submitter = currentSubmitter();
+    var who = safePathPart(submitter.email || submitter.name || submissionId);
     return who ? base + "/" + who : base;
   }
 
@@ -484,6 +506,10 @@
       setMessage(ownerMode
         ? "Dropbox is not connected. Connect Dropbox before uploading."
         : "This form is not ready for uploads. Please contact the form owner.");
+      return;
+    }
+    if (!submitterReady()) {
+      setMessage("Enter name and a valid email before uploading photos.");
       return;
     }
 
@@ -640,11 +666,15 @@
   retakeButton.addEventListener("click", retakeCurrent);
   connectDropboxButton.addEventListener("click", connectDropbox);
   disconnectDropboxButton.addEventListener("click", disconnectDropbox);
+  customerNameInput.addEventListener("input", render);
+  customerEmailInput.addEventListener("input", render);
   window.addEventListener("pagehide", stopCamera);
   window.addEventListener("resize", resizeWidget);
 
   refreshClock();
   setInterval(refreshClock, 1000);
+  customerNameInput.value = customer;
+  customerEmailInput.value = email;
 
   if (window.JFCustomWidget) {
     window.JFCustomWidget.subscribe("ready", function (data) {
