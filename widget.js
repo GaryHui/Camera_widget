@@ -30,6 +30,10 @@
   var taskHint = document.getElementById("taskHint");
   var thumbs = document.getElementById("thumbs");
   var dropboxText = document.getElementById("dropboxText");
+  var uploadProgress = document.getElementById("uploadProgress");
+  var uploadProgressText = document.getElementById("uploadProgressText");
+  var uploadProgressPercent = document.getElementById("uploadProgressPercent");
+  var uploadProgressBar = document.getElementById("uploadProgressBar");
 
   var stream = null;
   var locationSnapshot = null;
@@ -55,6 +59,7 @@
   var submissionId = params.get("submission") || params.get("submissionId") || "";
   var dropboxConnected = false;
   var captureToken = "jf-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  var submissionStamp = folderTimestamp(new Date());
   var isUploading = false;
   var photos = tasks.map(function (task) {
     return {
@@ -120,6 +125,22 @@
   function submitterReady() {
     var submitter = currentSubmitter();
     return Boolean(submitter.name && validEmail(submitter.email));
+  }
+
+  function folderTimestamp(date) {
+    function pad(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    return [
+      date.getFullYear(),
+      pad(date.getMonth() + 1),
+      pad(date.getDate())
+    ].join("") + "-" + [
+      pad(date.getHours()),
+      pad(date.getMinutes()),
+      pad(date.getSeconds())
+    ].join("");
   }
 
   function stringifyFieldValue(value) {
@@ -365,6 +386,8 @@
       retakeButton.disabled = !photos[currentIndex].imageDataUrl;
       if (!photos[currentIndex].imageDataUrl) {
         setMessage("Retake the selected photo, then upload all photos.");
+      } else if (photos[currentIndex].error) {
+        setMessage("Upload failed for " + photos[currentIndex].label + ". Tap Upload all photos to retry, or Retake this item.");
       } else {
         setMessage(dropboxConnected
           ? submitterReady()
@@ -620,8 +643,17 @@
   function submissionFolder() {
     var base = formFolder || (formId ? "form-" + formId : "default");
     var submitter = currentSubmitter();
-    var who = safePathPart(submitter.email || submitter.name || submissionId);
-    return who ? base + "/" + who : base;
+    var who = safePathPart(submitter.name || submitter.email || submissionId || "unknown");
+    return base + "/" + [who, submissionStamp].filter(Boolean).join("-");
+  }
+
+  function setUploadProgress(done, total, label) {
+    var percent = total ? Math.round((done / total) * 100) : 0;
+    uploadProgress.hidden = false;
+    uploadProgressText.textContent = label || "Uploading " + done + "/" + total;
+    uploadProgressPercent.textContent = percent + "%";
+    uploadProgressBar.style.width = percent + "%";
+    resizeWidget();
   }
 
   async function uploadAllPhotos() {
@@ -641,6 +673,7 @@
     }
 
     isUploading = true;
+    setUploadProgress(uploadedCount(), photos.length, "Preparing uploads");
     render();
 
     try {
@@ -648,17 +681,21 @@
         if (photos[i].upload) continue;
 
         currentIndex = i;
+        setUploadProgress(uploadedCount(), photos.length, "Uploading " + (uploadedCount() + 1) + "/" + photos.length + ": " + photos[i].label);
         setMessage("Uploading " + (i + 1) + "/9: " + photos[i].label + "...");
         renderThumbs();
         photos[i].upload = await uploadPhoto(photos[i].imageDataUrl, photos[i].metadata);
         photos[i].error = "";
+        setUploadProgress(uploadedCount(), photos.length, "Uploaded " + uploadedCount() + "/" + photos.length);
       }
 
       sendCurrentValue();
+      setUploadProgress(photos.length, photos.length, "Upload complete");
       setMessage("All 9 photos are uploaded. Submit the Jotform form to attach these links to this submission.");
     } catch (error) {
       photos[currentIndex].upload = null;
       photos[currentIndex].error = error.message || "Upload failed";
+      setUploadProgress(uploadedCount(), photos.length, "Upload failed at " + photos[currentIndex].label);
       setMessage("Upload failed for " + photos[currentIndex].label + ". Tap Upload all photos to retry, or Retake this item.");
     } finally {
       isUploading = false;

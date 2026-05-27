@@ -38,6 +38,16 @@
         <button id="disconnectDropboxButton" type="button" hidden>Disconnect</button>
       </section>
 
+      <section id="uploadProgress" class="upload-progress" hidden aria-label="Upload progress">
+        <div class="upload-progress-header">
+          <span id="uploadProgressText">Uploading 0/9</span>
+          <span id="uploadProgressPercent">0%</span>
+        </div>
+        <div class="upload-progress-bar">
+          <span id="uploadProgressBar"></span>
+        </div>
+      </section>
+
       <p id="message" class="message" role="status"></p>
     </main>
 

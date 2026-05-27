@@ -233,6 +233,41 @@ button:disabled {
   font-size: 13px;
 }
 
+.upload-progress {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.upload-progress[hidden] {
+  display: none;
+}
+
+.upload-progress-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #354155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.upload-progress-bar {
+  overflow: hidden;
+  height: 9px;
+  border-radius: 999px;
+  background: #e4eaf2;
+}
+
+.upload-progress-bar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: #12b76a;
+  transition: width 160ms ease;
+}
+
 @media (max-width: 420px) {
   button {
     flex: 1 1 0;
