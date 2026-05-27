@@ -269,12 +269,14 @@
     return uploadedCount() === photos.length;
   }
 
-  function buildValue() {
+  function buildValueData() {
     if (!isComplete()) return "";
 
-    return JSON.stringify({
+    return {
       proofMode: "camera-only-9-photos-linked",
       captureToken: captureToken,
+      installKey: resolveInstallKey(),
+      formId: formId,
       total: photos.length,
       completedAt: new Date().toISOString(),
       dropboxFolderUrl: photos[0] && photos[0].upload && photos[0].upload.folderUrl,
@@ -301,7 +303,25 @@
           metadata: item.metadata
         };
       })
+    };
+  }
+
+  function buildValue() {
+    var data = buildValueData();
+    if (!data) return "";
+
+    var lines = [
+      "Dropbox folder: " + (data.dropboxFolderUrl || ""),
+      "Submitter: " + [data.submitter.name, data.submitter.email].filter(Boolean).join(" / "),
+      "Capture token: " + data.captureToken
+    ];
+
+    data.photos.forEach(function (item) {
+      lines.push("Photo " + item.index + " - " + item.label + ": " + item.url);
     });
+
+    lines.push("Proof camera data: " + JSON.stringify(data));
+    return lines.join("\n");
   }
 
   function resolveInstallKey() {

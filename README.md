@@ -8,6 +8,7 @@ This is a standalone Jotform Custom Widget. It captures 9 required proof photos 
 - `styles.css`: widget styles
 - `widget.js`: camera, GPS, upload, and Jotform API logic
 - `api/upload.js`: Vercel serverless upload API
+- `api/jotform/webhook.js`: receives Jotform submissions and uploads the submission PDF to Dropbox
 - `api/dropbox/connect.js`: starts Dropbox OAuth
 - `api/dropbox/callback.js`: saves Dropbox OAuth refresh tokens
 - `api/dropbox/status.js`: checks whether a form is connected to Dropbox
@@ -46,12 +47,24 @@ Each photo is watermarked with:
 
 ## Jotform value
 
-Jotform receives a JSON string like this. It does not contain base64 image data.
+Jotform receives readable text with direct Dropbox links first, followed by machine-readable JSON. It does not contain base64 image data.
+
+```text
+Dropbox folder: https://dl.dropboxusercontent.com/...
+Submitter: John Smith / john@example.com
+Capture token: jf-example
+Photo 1 - Exterior front-left 45 degrees: https://dl.dropboxusercontent.com/...
+...
+Proof camera data: {"proofMode":"camera-only-9-photos-linked",...}
+```
+
+The `Proof camera data` JSON looks like this:
 
 ```json
 {
   "proofMode": "camera-only-9-photos-linked",
   "captureToken": "jf-example",
+  "installKey": "vehicle-inspection",
   "total": 9,
   "completedAt": "2026-05-27T00:00:00.000Z",
   "photos": [
@@ -160,6 +173,32 @@ The Jotform submission value includes:
 ```
 
 The form owner can also use `Disconnect` in the widget to remove the Dropbox connection for that `installKey`.
+
+## Jotform PDF upload
+
+To copy the submitted Jotform PDF into the same Dropbox folder as the 9 photos, add this webhook URL in Jotform:
+
+```text
+https://jotform-proof-camera-standalone.vercel.app/api/jotform/webhook
+```
+
+In Jotform:
+
+1. Open the form builder.
+2. Go to `Settings`.
+3. Open `Integrations`.
+4. Search for `Webhook`.
+5. Paste the webhook URL above.
+6. Save and make one real test submission.
+
+After submission, the webhook uploads:
+
+```text
+/JotformProof/.../jotform-submission-{submissionID}.pdf
+/JotformProof/.../jotform-submission-{submissionID}-webhook.json
+```
+
+The widget value already contains the Dropbox folder link, so the form owner can click that link from the Jotform submission table and see the 9 photos plus the submitted PDF in one folder.
 
 ## Matching photos to Jotform submissions
 
